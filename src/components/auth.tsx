@@ -13,35 +13,37 @@ export default function AuthWrapper({ children }: AuthWrapperProps) {
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(true);
 
-  // values are replaced at build time
-  const expectedUsername = process.env.NEXT_PUBLIC_USERNAME ?? '';
-  const expectedPassword = process.env.NEXT_PUBLIC_PASSWORD ?? '';
-
   useEffect(() => {
     try {
-      const savedAuth = localStorage.getItem('isAuthenticated');
-      if (savedAuth === 'true') setIsAuthenticated(true);
-    } catch (error) {
-      console.warn('localStorage not available:', error);
-    }
+      setIsAuthenticated(localStorage.getItem('isAuthenticated') === 'true');
+    } catch {}
     setIsLoading(false);
   }, []);
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (username === expectedUsername && password === expectedPassword) {
+    // ❗️HANYA UNTUK DEMO:
+    // Ganti dengan call ke /api/auth/login (lihat opsi B) untuk beneran.
+    const ok = username.trim() && password.trim(); // demo rule
+    if (ok) {
       setIsAuthenticated(true);
       try {
         localStorage.setItem('isAuthenticated', 'true');
-      } catch (error) {
-        console.warn('localStorage not available:', error);
-      }
+      } catch {}
       setError('');
+      setPassword('');
     } else {
       setError('Username atau password salah');
       setPassword('');
     }
+  };
+
+  const handleLogout = () => {
+    setIsAuthenticated(false);
+    try {
+      localStorage.removeItem('isAuthenticated');
+    } catch {}
   };
 
   if (isLoading) return null;
@@ -61,6 +63,7 @@ export default function AuthWrapper({ children }: AuthWrapperProps) {
                 onChange={(e) => setUsername(e.target.value)}
                 className="w-full p-3 border text-black border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                 placeholder="Masukkan username"
+                autoComplete="username"
                 required
               />
             </div>
@@ -73,6 +76,7 @@ export default function AuthWrapper({ children }: AuthWrapperProps) {
                 onChange={(e) => setPassword(e.target.value)}
                 className="w-full text-black p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                 placeholder="Masukkan password"
+                autoComplete="current-password"
                 required
               />
             </div>
@@ -81,8 +85,8 @@ export default function AuthWrapper({ children }: AuthWrapperProps) {
 
             <button
               type="submit"
-              className="w-full bg-gradient-to-r from-[#72BB34] to-[#40A3DC] relative overflow-hidden text-white py-3 px-6 rounded-lg font-medium transition-all duration-500 ease-in-out hover:scale-100 hover:shadow-xl
-              before:absolute before:inset-0 before:bg-white/20 before:translate-x-[-100%] hover:before:translate-x-[100%] before:transition-transform before:duration-500">
+              className="w-full bg-gradient-to-r from-[#72BB34] to-[#40A3DC] relative overflow-hidden text-white py-3 px-6 rounded-lg font-medium transition-all duration-500 ease-in-out hover:shadow-xl
+              before:absolute before:inset-0 before:bg-white/20 before:-translate-x-full hover:before:translate-x-full before:transition-transform before:duration-500">
               Masuk
             </button>
           </form>
@@ -91,5 +95,18 @@ export default function AuthWrapper({ children }: AuthWrapperProps) {
     );
   }
 
-  return <>{children}</>;
+  return (
+    <>
+      <div className="fixed top-3 right-3 z-50">
+        <button
+          onClick={handleLogout}
+          className="px-3 py-1.5 text-sm rounded-md border bg-white hover:bg-gray-50"
+          aria-label="Logout"
+        >
+          Logout
+        </button>
+      </div>
+      {children}
+    </>
+  );
 }

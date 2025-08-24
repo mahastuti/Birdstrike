@@ -11,6 +11,11 @@ export const metadata = {
   description: "Internship Project",
 };
 
+export const viewport = {
+  width: "device-width",
+  initialScale: 0.7,
+};
+
 const poppins = Poppins({
   subsets: ["latin"],
   weight: ["400", "500", "600", "700", "800"],

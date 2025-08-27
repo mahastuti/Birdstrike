@@ -66,6 +66,7 @@ export default function About() {
               <p className="mb-3">Proyek ini masih berada pada tahap pengembangan awal. Kedepannya, diharapkan dapat terus dikembangkan, dengan evaluasi:</p>
               <ul className="list-disc list-inside space-y-1 text-left">
                 <li>Data burung terbatas, sehingga model juga didasarkan pada burung2 itu </li>
+                <li>Data cuaca belum mendapat akses langsung dari BMKG Juanda, sehingga menggunakan data cuaca yang open-API </li>
               </ul>
             </div>
           </div>
@@ -77,7 +78,6 @@ export default function About() {
             </div>
           </div>
         </div>
-
       </div>
     </div>
   )

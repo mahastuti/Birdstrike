@@ -5,13 +5,14 @@ import Navbar from "../components/navbar";
 import Footer from "../components/footer";
 import AuthWrapper from "../components/auth";
 import type { ReactNode } from "react";
+import type { Metadata, Viewport } from "next";
 
-export const metadata = {
+export const metadata: Metadata = {
   title: "Birdstrike Juanda Dashboard",
   description: "Internship Project",
 };
 
-export const viewport = {
+export const viewport: Viewport = {
   width: "device-width",
   initialScale: 0.7,
 };

@@ -22,34 +22,34 @@ export default function About() {
               {/* Text area */}
               <div className="flex-1 bg-white p-2 rounded">
                 <div className="text-black text-justify">
-                  Proyek ini menggabungkan dashboard dan model prediksi <i>machine learning</i> agar terintegrasi secara <i>real-time </i>
+                  Proyek ini menggabungkan dashboard interaktif dan model prediksi <i>machine learning</i> agar terintegrasi secara <i>real-time </i>
                   dengan data terbaru yang diinput. <br/><br/>
-                  Di bawah bimbingan dan arahan <b>Bapak Bagus Yuliono</b>, Senior Manager Divisi Safety, proyek ini dikerjakan pada program 
+                  Di bawah bimbingan dan arahan <b>Bapak Bagus Yuliono</b> sebagai Senior Manager Divisi Safety, proyek ini dikerjakan pada program 
                   magang mandiri dari Departemen Statistika ITS oleh
                   <a href="https://www.linkedin.com/in/alifmuhmahrus/" target="_blank" rel="noopener noreferrer"> Mahrus Alif </a>
                   dan <a href="https://www.linkedin.com/in/mahastuti/" target="_blank" rel="noopener noreferrer">Nalini Mahastuti</a>.
 
                 </div>
-                <div className="flex gap-8 mt-5">
+                <div className="flex gap-10 mt-5">
                   <div className="flex-1 text-black text-justify">
                     <h3 className="text-l font-medium mb-2">Tech Stack & Tools:</h3>
                     <ul className="list-disc list-inside">
                       <li>Next.js</li>
                       <li>PostgreSQL & Prisma</li>
-                      <li>Railway</li>
+                      <li>Supabase & TablePlus</li>
                       <li>Python & Flask</li>
                       <li>Github & Vercel</li>
                       <li>Google Looker Studio</li>
                       <li>Figma</li>
                     </ul>
                   </div>
-                  <div className="flex-1 text-black text-justify">
+                  <div className="flex-1 text-black text-left">
                     <h3 className="text-l font-medium mb-2">Fitur Utama:</h3>
                     <ul className="list-disc list-inside">
-                      <li>Dashboard real-time</li>
-                      <li>Model prediksi bird strike</li>
-                      <li>Visualisasi data interaktif</li>
                       <li>Input data terintegrasi</li>
+                      <li>Dashboard real-time</li>
+                      <li>Visualisasi interaktif</li>
+                      <li>Model prediksi bird strike</li>
                     </ul>
                   </div>
                 </div>
@@ -59,15 +59,13 @@ export default function About() {
         </div>
 
         {/* Saran dan Evaluasi + Versi Section */}
-        <div className="flex gap-6">
+        <div className="flex gap-6 mb-16">
           <div className="flex-2 h-auto">
             <h2 className="text-3xl font-medium text-center mb-5 text-black">Saran Pengembangan</h2>
             <div className="text-black text-justify bg-white border-2 border-gray-400 rounded-lg p-8">
               <p className="mb-3">Proyek ini masih berada pada tahap pengembangan awal. Kedepannya, diharapkan dapat terus dikembangkan, dengan evaluasi:</p>
-              <ul className="list-disc list-inside space-y-1">
+              <ul className="list-disc list-inside space-y-1 text-left">
                 <li>Data burung terbatas, sehingga model juga didasarkan pada burung2 itu </li>
-                <li>Menggunakan database deployment yang lebih scalable</li>
-                <li><b>XXX: </b> XXX</li>
               </ul>
             </div>
           </div>

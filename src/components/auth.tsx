@@ -97,15 +97,6 @@ export default function AuthWrapper({ children }: AuthWrapperProps) {
 
   return (
     <>
-      <div className="fixed top-3 right-3 z-50">
-        <button
-          onClick={handleLogout}
-          className="px-3 py-1.5 text-sm rounded-md border bg-white hover:bg-gray-50"
-          aria-label="Logout"
-        >
-          Logout
-        </button>
-      </div>
       {children}
     </>
   );

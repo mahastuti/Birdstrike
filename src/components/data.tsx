@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react";
+import DataTable from "./data-table";
 
 export default function Data() {
   const [selectedDataType, setSelectedDataType] = useState('bird-strike');
@@ -17,7 +18,7 @@ export default function Data() {
         <div className="bg-white border-2 border-gray-300 rounded-lg overflow-hidden">
 
           {/* Navigation Buttons */}
-          <div className="p-6 flex justify-center space-x-8 bg-white">
+          <div className="p-6 flex justify-center space-x-4 bg-white flex-wrap">
             <button
               onClick={() => setSelectedDataType('bird-strike')}
               className={`px-6 py-3 rounded-lg border-2 transition-colors ${
@@ -60,29 +61,30 @@ export default function Data() {
             </button>
           </div>
 
-          {/* Embed Spreadsheet Area */}
+          {/* Content Area */}
           <div className="bg-white p-6">
-            <div className="h-200">
+            <div className="min-h-[500px]">
               {selectedDataType === 'bird-strike' && (
-                <iframe
-                  src="https://docs.google.com/spreadsheets/d/e/2PACX-1vSDMioGHSBvMY2E2QvVTik05l8A5higkD2hH5NZGc8y71T1rfyunKTsNsxS2W7JH2-t97Hnm572CaZq/pubhtml?gid=909981323&single=true&widget=true&headers=false"
-                  className="w-full h-full border-0 rounded"
-                  title="Bird Strike Data"
-                />
+                <DataTable dataType="bird-strike" />
               )}
               {selectedDataType === 'bird-species' && (
-                <iframe
-                  src="https://docs.google.com/spreadsheets/d/e/2PACX-1vSDMioGHSBvMY2E2QvVTik05l8A5higkD2hH5NZGc8y71T1rfyunKTsNsxS2W7JH2-t97Hnm572CaZq/pubhtml?gid=533811830&single=true&widget=true&headers=false"
-                  className="w-full h-full border-0 rounded"
-                  title="Bird Species Data"
-                />
+                <DataTable dataType="bird-species" />
               )}
               {selectedDataType === 'traffic-flight' && (
-                <iframe
-                  src="https://docs.google.com/spreadsheets/d/e/2PACX-1vSDMioGHSBvMY2E2QvVTik05l8A5higkD2hH5NZGc8y71T1rfyunKTsNsxS2W7JH2-t97Hnm572CaZq/pubhtml?gid=1761942450&single=true&widget=true&headers=false"
-                  className="w-full h-full border-0 rounded"
-                  title="Traffic Flight Data"
-                />
+                <DataTable dataType="traffic-flight" />
+              )}
+              {selectedDataType === 'modeling' && (
+                <div className="bg-gray-100 border-2 border-gray-300 rounded-lg p-8 text-center">
+                  <h3 className="text-lg font-medium text-gray-700 mb-4">Modeling Data</h3>
+                  <p className="text-gray-600">Modeling analysis and predictions will be displayed here.</p>
+                  <div className="mt-6">
+                    <iframe
+                      src="https://docs.google.com/spreadsheets/d/e/2PACX-1vSDMioGHSBvMY2E2QvVTik05l8A5higkD2hH5NZGc8y71T1rfyunKTsNsxS2W7JH2-t97Hnm572CaZq/pubhtml?gid=1761942450&single=true&widget=true&headers=false"
+                      className="w-full h-96 border-0 rounded"
+                      title="Modeling Data"
+                    />
+                  </div>
+                </div>
               )}
             </div>
           </div>

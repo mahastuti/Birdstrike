@@ -1,21 +1,71 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
-
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
   directUrl = env("DIRECT_URL")
 }
 
-model User{
-  id Int @id @default(autoincrement())
-  number String?
-  email String @unique
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model burung_bio {
+  id            BigInt    @id @default(autoincrement())
+  latitude      String?   @db.VarChar
+  longitude     String?   @db.VarChar
+  lokasi        String?
+  titik         String?   @db.VarChar
+  tanggal       DateTime? @db.Date
+  jam           DateTime? @db.Timestamp(6)
+  waktu         String?   @default(dbgenerated("\nCASE\n    WHEN (((jam)::time without time zone >= '00:01:00'::time without time zone) AND ((jam)::time without time zone <= '03:00:00'::time without time zone)) THEN 'Dini Hari'::text\n    WHEN (((jam)::time without time zone >= '03:01:00'::time without time zone) AND ((jam)::time without time zone <= '08:00:00'::time without time zone)) THEN 'Pagi'::text\n    WHEN (((jam)::time without time zone >= '08:01:00'::time without time zone) AND ((jam)::time without time zone <= '13:00:00'::time without time zone)) THEN 'Siang'::text\n    WHEN (((jam)::time without time zone >= '13:01:00'::time without time zone) AND ((jam)::time without time zone <= '18:00:00'::time without time zone)) THEN 'Sore'::text\n    WHEN (((jam)::time without time zone >= '18:01:00'::time without time zone) AND ((jam)::time without time zone <= '23:59:00'::time without time zone)) THEN 'Malam'::text\n    ELSE '-'::text\nEND"))
+  cuaca         String?
+  jenis_burung  String?
+  nama_ilmiah   String?
+  jumlah_burung Int?
+  keterangan    String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  deletedAt      DateTime?
+  
+}
+
+model BirdStrike {
+  id                 BigInt   @id @default(autoincrement())
+  tanggal           DateTime?
+  jam               DateTime?
+  waktu             String?
+  fase              String?
+  lokasi_perimeter  String?
+  kategori_kejadian String?
+  remark            String?
+  airline           String?
+  runway_use        String?
+  komponen_pesawat  String?
+  dampak_pada_pesawat String?
+  kondisi_kerusakan String?
+  tindakan_lanjut   String?
+  sumber_informasi  String?
+  deskripsi         String?
+  dokumentasi_form  String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  deletedAt         DateTime?
+
+  @@map("bird_strike")
+}
+
+model TrafficFlight {
+  id             BigInt   @id @default(autoincrement())
+  flight_number  String?
+  airline        String?
+  departure_time String?
+  arrival_time   String?
+  aircraft_type  String?
+  route          String?
+  passengers     Int?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  deletedAt      DateTime?
+
+  @@map("traffic_flight")
 }

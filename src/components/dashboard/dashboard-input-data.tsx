@@ -3,6 +3,8 @@
 import { useState } from 'react';
 import { Bird, Plane, Zap } from 'lucide-react';
 
+// =====================================================================================================================
+
 // Bird Strike Form Data Interface
 interface BirdStrikeFormData {
   tanggal: string;
@@ -14,10 +16,10 @@ interface BirdStrikeFormData {
   remark: string;
   airline: string;
   runway_use: string;
-  komponen_pesawat: string;
+  komponen_pesawat: string; 
   dampak_pada_pesawat: string;
   kondisi_kerusakan: string;
-  tindakan_lanjut: string;
+  tindakan_perbaikan: string;
   sumber_informasi: string;
   deskripsi: string;
   dokumentasi_form: File | null;
@@ -25,7 +27,8 @@ interface BirdStrikeFormData {
 
 // Bird Species Form Data Interface
 interface BirdSpeciesFormData {
-  titik_koordinat: string;
+  latitude: string;
+  longitude: string;
   lokasi: string;
   titik: string;
   tanggal: string;
@@ -43,6 +46,9 @@ interface TrafficFlightFormData {
   csvFile: File | null;
   showInstructions: boolean;
 }
+
+// =====================================================================================================================
+// =====================================================================================================================
 
 export default function DashboardInputData() {
   const [selectedForm, setSelectedForm] = useState<'bird-strike' | 'bird-species' | 'traffic-flight'>('bird-strike');
@@ -64,7 +70,7 @@ export default function DashboardInputData() {
     komponen_pesawat: '',
     dampak_pada_pesawat: '',
     kondisi_kerusakan: '',
-    tindakan_lanjut: '',
+    tindakan_perbaikan: '',
     sumber_informasi: '',
     deskripsi: '',
     dokumentasi_form: null,
@@ -72,7 +78,8 @@ export default function DashboardInputData() {
 
   // Bird Species Form State
   const [birdSpeciesData, setBirdSpeciesData] = useState<BirdSpeciesFormData>({
-    titik_koordinat: '',
+    latitude: '',
+    longitude: '',
     lokasi: '',
     titik: '',
     tanggal: '',
@@ -91,7 +98,10 @@ export default function DashboardInputData() {
     showInstructions: false,
   });
 
-  const handleSubmit = async () => {
+// =====================================================================================================================
+// =====================================================================================================================
+  
+const handleSubmit = async () => {
     setIsSubmitting(true);
     setSubmitMessage('');
 
@@ -154,14 +164,15 @@ export default function DashboardInputData() {
               komponen_pesawat: '',
               dampak_pada_pesawat: '',
               kondisi_kerusakan: '',
-              tindakan_lanjut: '',
+              tindakan_perbaikan: '',
               sumber_informasi: '',
               deskripsi: '',
               dokumentasi_form: null,
             });
           } else if (selectedForm === 'bird-species') {
             setBirdSpeciesData({
-              titik_koordinat: '',
+              latitude: '',
+              longitude: '',
               lokasi: '',
               titik: '',
               tanggal: '',

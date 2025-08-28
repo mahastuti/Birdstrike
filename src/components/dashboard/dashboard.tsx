@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { BarChart3, LayoutDashboard, Map, Image as ImageIcon, FileBarChart } from 'lucide-react';
-import DashboardInputData from './dashboard-input-data';
+import DashboardInputData from '@/components/dashboard/dashboard-input-data';
 
 export default function Dashboard() {
   const [selectedSidebarOption, setSelectedSidebarOption] = useState('dashboard');

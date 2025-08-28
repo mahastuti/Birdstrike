@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react";
-import DataTable from "./data-table";
+import DataTable from "data-table";
 
 export default function Data() {
   const [selectedDataType, setSelectedDataType] = useState('bird-strike');

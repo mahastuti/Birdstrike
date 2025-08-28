@@ -15,7 +15,7 @@ export default function Footer() {
         fontFamily: "sans-serif",
       }}
     >
-      <p style={{ margin: 0, fontSize: "0.8rem" }}>
+      <p style={{ margin: 0, fontSize: "0.9rem" }}>
         Copyright © <strong>2025</strong> Angkasa Pura Indonesia I
       </p>
       <p style={{ margin: 3, fontSize: "0.6rem" }}>

@@ -1,6 +1,6 @@
 'use client';
 
-import BirdStrikeInput from '@/components/bird-strike-input';
+import BirdStrikeInput from '@/components/dashboard/bird-strike-input';
 
 export default function Page() {
   return <BirdStrikeInput />;

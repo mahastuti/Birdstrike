@@ -16,7 +16,7 @@ interface BirdFormData {
   keterangan: string;
 }
 
-export default function BirdInputForm() {
+export default function BirdSpeciesInput() {
   const [formData, setFormData] = useState<BirdFormData>({
     titik_koordinat: '',
     lokasi: '',

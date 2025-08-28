@@ -39,13 +39,6 @@ export default function AuthWrapper({ children }: AuthWrapperProps) {
     }
   };
 
-  const handleLogout = () => {
-    setIsAuthenticated(false);
-    try {
-      localStorage.removeItem('isAuthenticated');
-    } catch {}
-  };
-
   if (isLoading) return null;
 
   if (!isAuthenticated) {

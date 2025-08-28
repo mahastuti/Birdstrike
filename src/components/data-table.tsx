@@ -1,6 +1,6 @@
-"use client"
+"use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Trash2, RotateCcw, Download, ChevronLeft, ChevronRight } from "lucide-react";
 
 interface DataTableProps {
@@ -8,7 +8,7 @@ interface DataTableProps {
 }
 
 export default function DataTable({ dataType }: DataTableProps) {
-  const [data, setData] = useState<any[]>([]);
+  const [data, setData] = useState<Record<string, unknown>[]>([]);
   const [loading, setLoading] = useState(false);
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(10);
@@ -22,7 +22,7 @@ export default function DataTable({ dataType }: DataTableProps) {
   });
   const [message, setMessage] = useState('');
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     setLoading(true);
     try {
       const params = new URLSearchParams({
@@ -44,11 +44,11 @@ export default function DataTable({ dataType }: DataTableProps) {
     } finally {
       setLoading(false);
     }
-  };
+  }, [page, limit, search, showDeleted, dataType]);
 
   useEffect(() => {
     fetchData();
-  }, [page, limit, search, showDeleted, dataType]);
+  }, [fetchData]);
 
   const handleDelete = async (id: string) => {
     try {
@@ -90,15 +90,17 @@ export default function DataTable({ dataType }: DataTableProps) {
     const headers = Object.keys(data[0]).filter(key => key !== 'deletedAt');
     const csvContent = [
       headers.join(','),
-      ...data.map(row => 
-        headers.map(header => {
-          const value = row[header];
-          if (value === null || value === undefined) return '';
-          if (typeof value === 'string' && value.includes(',')) {
-            return `"${value}"`;
-          }
-          return value;
-        }).join(',')
+      ...data.map(row =>
+        headers
+          .map(header => {
+            const value = row[header];
+            if (value === null || value === undefined) return '';
+            if (typeof value === 'string' && value.includes(',')) {
+              return `"${value}"`;
+            }
+            return String(value);
+          })
+          .join(',')
       )
     ].join('\n');
 
@@ -145,16 +147,16 @@ export default function DataTable({ dataType }: DataTableProps) {
     }
   };
 
-  const formatValue = (value: any, key: string) => {
+  const formatValue = (value: unknown, key: string): string => {
     if (value === null || value === undefined) return '-';
-    if (key.includes('tanggal') || key.includes('time')) {
+    if (typeof value === 'string' && (key.includes('tanggal') || key.includes('time'))) {
       try {
         return new Date(value).toLocaleDateString('id-ID');
       } catch {
         return value;
       }
     }
-    return value;
+    return String(value);
   };
 
   const columns = getColumns();
@@ -252,7 +254,10 @@ export default function DataTable({ dataType }: DataTableProps) {
               </tr>
             ) : (
               data.map((row, index) => (
-                <tr key={row.id} className={`${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'} ${row.deletedAt ? 'opacity-50' : ''}`}>
+                <tr
+                  key={String(row.id)}
+                  className={`${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'} ${Boolean(row.deletedAt) ? 'opacity-50' : ''}`}
+                >
                   {columns.map((column) => (
                     <td key={column.key} className="border border-gray-300 px-4 py-2 text-sm">
                       {formatValue(row[column.key], column.key)}
@@ -262,7 +267,7 @@ export default function DataTable({ dataType }: DataTableProps) {
                     <div className="flex justify-center gap-2">
                       {row.deletedAt ? (
                         <button
-                          onClick={() => handleRestore(row.id.toString())}
+                          onClick={() => handleRestore(String(row.id))}
                           className="bg-green-500 hover:bg-green-600 text-white p-1 rounded text-xs flex items-center gap-1"
                           title="Restore"
                         >
@@ -271,7 +276,7 @@ export default function DataTable({ dataType }: DataTableProps) {
                         </button>
                       ) : (
                         <button
-                          onClick={() => handleDelete(row.id.toString())}
+                          onClick={() => handleDelete(String(row.id))}
                           className="bg-red-500 hover:bg-red-600 text-white p-1 rounded text-xs flex items-center gap-1"
                           title="Delete"
                         >

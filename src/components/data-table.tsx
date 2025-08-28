@@ -22,7 +22,7 @@ export default function DataTable({ dataType }: DataTableProps) {
   });
   const [message, setMessage] = useState('');
 
-  const fetchData = useCallback(async () => {
+  const fetchData = useCallback(async (signal?: AbortSignal) => {
     setLoading(true);
     try {
       const params = new URLSearchParams({
@@ -32,22 +32,71 @@ export default function DataTable({ dataType }: DataTableProps) {
         showDeleted: showDeleted.toString()
       });
 
-      const response = await fetch(`/api/data/${dataType}?${params}`);
+      const response = await fetch(`/api/data/${dataType}?${params}`, {
+        signal // Add abort signal for request cancellation
+      });
+
+      // Check if response is ok before reading body
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      // Check if request was aborted
+      if (signal?.aborted) {
+        return;
+      }
+
       const result = await response.json();
 
-      if (result.success) {
+      // Only update state if request wasn't aborted
+      if (!signal?.aborted && result.success) {
         setData(result.data);
         setPagination(result.pagination);
       }
     } catch (error) {
-      console.error('Error fetching data:', error);
+      // Handle different types of errors gracefully
+      if (signal?.aborted) {
+        // Request was aborted - this is normal, don't log or update state
+        return;
+      }
+
+      if (error instanceof Error) {
+        if (error.name === 'AbortError') {
+          // Abort error but signal not aborted - still ignore
+          return;
+        }
+        console.error('Error fetching data:', error);
+      } else {
+        console.error('Unknown error fetching data:', error);
+      }
     } finally {
-      setLoading(false);
+      // Only set loading to false if request wasn't aborted
+      if (!signal?.aborted) {
+        setLoading(false);
+      }
     }
   }, [page, limit, search, showDeleted, dataType]);
 
   useEffect(() => {
-    fetchData();
+    const controller = new AbortController();
+
+    // Add debouncing for search to prevent too many requests
+    const timeoutId = setTimeout(() => {
+      fetchData(controller.signal);
+    }, search ? 300 : 0); // 300ms debounce for search, immediate for other changes
+
+    return () => {
+      try {
+        // Safely abort the controller without throwing errors
+        if (!controller.signal.aborted) {
+          controller.abort();
+        }
+      } catch {
+        // Silently ignore abort errors during cleanup
+      }
+      clearTimeout(timeoutId);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fetchData]);
 
   const handleDelete = async (id: string) => {
@@ -55,15 +104,31 @@ export default function DataTable({ dataType }: DataTableProps) {
       const response = await fetch(`/api/data/${dataType}?id=${id}`, {
         method: 'DELETE'
       });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
       const result = await response.json();
-      
+
       if (result.success) {
         setMessage(result.message);
         setTimeout(() => setMessage(''), 3000);
-        fetchData();
+        // Use a small delay to prevent race conditions with the main fetch
+        setTimeout(() => {
+          if (!loading) {
+            const newController = new AbortController();
+            fetchData(newController.signal);
+          }
+        }, 100);
+      } else {
+        setMessage(result.message || 'Failed to delete data');
+        setTimeout(() => setMessage(''), 3000);
       }
     } catch (error) {
       console.error('Error deleting data:', error);
+      setMessage('Failed to delete data');
+      setTimeout(() => setMessage(''), 3000);
     }
   };
 
@@ -72,15 +137,31 @@ export default function DataTable({ dataType }: DataTableProps) {
       const response = await fetch(`/api/data/${dataType}?id=${id}&action=restore`, {
         method: 'PATCH'
       });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
       const result = await response.json();
-      
+
       if (result.success) {
         setMessage(result.message);
         setTimeout(() => setMessage(''), 3000);
-        fetchData();
+        // Use a small delay to prevent race conditions with the main fetch
+        setTimeout(() => {
+          if (!loading) {
+            const newController = new AbortController();
+            fetchData(newController.signal);
+          }
+        }, 100);
+      } else {
+        setMessage(result.message || 'Failed to restore data');
+        setTimeout(() => setMessage(''), 3000);
       }
     } catch (error) {
       console.error('Error restoring data:', error);
+      setMessage('Failed to restore data');
+      setTimeout(() => setMessage(''), 3000);
     }
   };
 

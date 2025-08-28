@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { BarChart3, LayoutDashboard, Map, Image as ImageIcon, FileBarChart } from 'lucide-react';
+import DashboardInputData from './dashboard-input-data';
 
 export default function Dashboard() {
   const [selectedSidebarOption, setSelectedSidebarOption] = useState('dashboard');
@@ -121,7 +122,8 @@ export default function Dashboard() {
               </div>
             </div>
 
-
+            {/* Input Data Section */}
+            <DashboardInputData />
 
             {/* Logout Button */}
             <div className="mt-8 mb-25 flex justify-center">

@@ -16,7 +16,7 @@ export default function Footer() {
       }}
     >
       <p style={{ margin: 0, fontSize: "0.9rem" }}>
-        Copyright © <strong>2025</strong> Angkasa Pura Indonesia I
+        Copyright © <strong>2025</strong> Angkasa Pura Indonesia
       </p>
       <p style={{ margin: 3, fontSize: "0.6rem" }}>
         Dikembangkan oleh Program Magang Divisi Safety

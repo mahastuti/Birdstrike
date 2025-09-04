@@ -10,61 +10,72 @@ datasource db {
 
 model burung_bio {
   id            BigInt    @id @default(autoincrement())
-  latitude      String?   @db.VarChar
   longitude     String?   @db.VarChar
-  lokasi        String?
+  latitude      String?   @db.VarChar
+  lokasi        String?   @db.VarChar
   titik         String?   @db.VarChar
   tanggal       DateTime? @db.Date
-  jam           DateTime? @db.Timestamp(6)
-  waktu         String?   @default(dbgenerated("\nCASE\n    WHEN (((jam)::time without time zone >= '00:01:00'::time without time zone) AND ((jam)::time without time zone <= '03:00:00'::time without time zone)) THEN 'Dini Hari'::text\n    WHEN (((jam)::time without time zone >= '03:01:00'::time without time zone) AND ((jam)::time without time zone <= '08:00:00'::time without time zone)) THEN 'Pagi'::text\n    WHEN (((jam)::time without time zone >= '08:01:00'::time without time zone) AND ((jam)::time without time zone <= '13:00:00'::time without time zone)) THEN 'Siang'::text\n    WHEN (((jam)::time without time zone >= '13:01:00'::time without time zone) AND ((jam)::time without time zone <= '18:00:00'::time without time zone)) THEN 'Sore'::text\n    WHEN (((jam)::time without time zone >= '18:01:00'::time without time zone) AND ((jam)::time without time zone <= '23:59:00'::time without time zone)) THEN 'Malam'::text\n    ELSE '-'::text\nEND"))
+  jam           DateTime? @db.Time(6)
+  waktu         String?
   cuaca         String?
   jenis_burung  String?
   nama_ilmiah   String?
   jumlah_burung Int?
   keterangan    String?
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
-  deletedAt      DateTime?
-  
+  dokumentasi   String?
+  createdAt     DateTime  @default(now()) @db.Timestamptz(6)
+  updatedAt     DateTime? @updatedAt @db.Timestamp(6)
+  deletedAt     DateTime? @db.Timestamp(6)
 }
 
 model BirdStrike {
-  id                 BigInt   @id @default(autoincrement())
-  tanggal           DateTime?
-  jam               DateTime?
-  waktu             String?
-  fase              String?
-  lokasi_perimeter  String?
-  kategori_kejadian String?
-  remark            String?
-  airline           String?
-  runway_use        String?
-  komponen_pesawat  String?
+  id                  BigInt    @id @default(autoincrement())
+  tanggal             DateTime? @db.Date
+  jam                 DateTime? @db.Time(6)
+  waktu               String?
+  fase                String?
+  lokasi_perimeter    String?
+  kategori_kejadian   String?
+  remark              String?
+  airline             String?
+  runway_use          String?
+  komponen_pesawat    String?
   dampak_pada_pesawat String?
-  kondisi_kerusakan String?
-  tindakan_lanjut   String?
-  sumber_informasi  String?
-  deskripsi         String?
-  dokumentasi_form  String?
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
-  deletedAt         DateTime?
+  kondisi_kerusakan   String?
+  tindakan_perbaikan  String?
+  sumber_informasi    String?
+  deskripsi           String?
+  dokumentasi         String?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+  deletedAt           DateTime?
+  jenis_pesawat       String?
 
   @@map("bird_strike")
 }
 
 model TrafficFlight {
-  id             BigInt   @id @default(autoincrement())
-  flight_number  String?
-  airline        String?
-  departure_time String?
-  arrival_time   String?
-  aircraft_type  String?
-  route          String?
-  passengers     Int?
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
-  deletedAt      DateTime?
+  id                   BigInt  @id @default(autoincrement())
+  no                   String? @db.VarChar
+  act_type             String? @db.VarChar
+  reg_no               String? @db.VarChar
+  opr                  String? @db.VarChar
+  flight_number_origin String? @db.VarChar
+  flight_number_dest   String? @db.VarChar
+  ata                  String?
+  block_on             String
+  block_off            String
+  atd                  String?
+  ground_time          String?
+  org                  String? @db.VarChar
+  des                  String? @db.VarChar
+  ps                   String? @db.VarChar
+  runway               String? @db.VarChar
+  avio_a               String? @db.VarChar
+  avio_d               String? @db.VarChar
+  f_stat               String? @db.VarChar
+  bulan                String? @db.VarChar
+  tahun                String? @db.VarChar
 
   @@map("traffic_flight")
 }

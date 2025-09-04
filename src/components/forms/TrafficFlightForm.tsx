@@ -1,13 +1,14 @@
 "use client";
 
 import { useState } from "react";
+import type { FormEvent } from "react";
 
 interface TrafficFlightFormData {
   csvFile: File | null;
 }
 
-interface TrafficFlightFormProps {
-  onSubmit: (data: TrafficFlightFormData) => Promise<void>;
+type TrafficFlightFormProps = {
+  onSubmit?: (data: TrafficFlightFormData) => Promise<void>;
   isSubmitting?: boolean;
 }
 
@@ -17,12 +18,14 @@ export default function TrafficFlightForm({ onSubmit, isSubmitting = false }: Tr
   });
   const [showInstructions, setShowInstructions] = useState(false);
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     if (!formData.csvFile) {
       throw new Error("Silakan pilih file CSV terlebih dahulu");
     }
-    await onSubmit(formData);
+    if (onSubmit) {
+      await onSubmit(formData);
+    }
     // Reset form after successful submission
     setFormData({ csvFile: null });
   };

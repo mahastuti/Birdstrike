@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import type { FormEvent } from "react";
 
 interface BirdSpeciesFormData {
   titik_koordinat: string;
@@ -16,8 +17,8 @@ interface BirdSpeciesFormData {
   keterangan: string;
 }
 
-interface BirdSpeciesFormProps {
-  onSubmit: (data: BirdSpeciesFormData) => Promise<void>;
+type BirdSpeciesFormProps = {
+  onSubmit?: (data: BirdSpeciesFormData) => Promise<void>;
   isSubmitting?: boolean;
 }
 
@@ -44,9 +45,11 @@ export default function BirdSpeciesForm({ onSubmit, isSubmitting = false }: Bird
     }));
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    await onSubmit(formData);
+    if (onSubmit) {
+      await onSubmit(formData);
+    }
     // Reset form after successful submission
     setFormData({
       titik_koordinat: '',

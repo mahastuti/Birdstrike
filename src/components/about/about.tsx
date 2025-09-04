@@ -24,8 +24,8 @@ export default function About() {
                 <div className="text-black text-justify">
                   Proyek ini menggabungkan dashboard interaktif dan model prediksi <i>machine learning</i> agar terintegrasi secara <i>real-time </i>
                   dengan data terbaru yang diinput. <br/><br/>
-                  Di bawah bimbingan dan arahan <b>Bapak Bagus Yuliono</b> sebagai Senior Manager Divisi Safety, proyek ini dikerjakan pada program 
-                  magang mandiri dari Departemen Statistika ITS oleh
+                  Di bawah bimbingan dan arahan <b>Bapak Bagus Yuliono</b> sebagai Senior Manager Divisi Safety, proyek ini dikerjakan dengan
+                  berkolaborasi dengan Departemen Statistika ITS oleh
                   <a href="https://www.linkedin.com/in/alifmuhmahrus/" target="_blank" rel="noopener noreferrer"> Mahrus Alif </a>
                   dan <a href="https://www.linkedin.com/in/mahastuti/" target="_blank" rel="noopener noreferrer">Nalini Mahastuti</a>.
 

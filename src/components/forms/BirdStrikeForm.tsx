@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import type { FormEvent } from "react";
 
 interface BirdStrikeFormData {
   tanggal: string;
@@ -21,8 +22,8 @@ interface BirdStrikeFormData {
   dokumentasi_form: File | null;
 }
 
-interface BirdStrikeFormProps {
-  onSubmit: (data: BirdStrikeFormData) => Promise<void>;
+type BirdStrikeFormProps = {
+  onSubmit?: (data: BirdStrikeFormData) => Promise<void>;
   isSubmitting?: boolean;
 }
 
@@ -46,9 +47,11 @@ export default function BirdStrikeForm({ onSubmit, isSubmitting = false }: BirdS
     dokumentasi_form: null,
   });
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    await onSubmit(formData);
+    if (onSubmit) {
+      await onSubmit(formData);
+    }
     // Reset form after successful submission
     setFormData({
       tanggal: "",

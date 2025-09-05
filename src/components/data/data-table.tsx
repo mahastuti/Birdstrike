@@ -199,29 +199,61 @@ export default function DataTable({ dataType }: DataTableProps) {
       case 'bird-strike':
         return [
           { key: 'tanggal', label: 'Tanggal' },
+          { key: 'jam', label: 'Jam' },
+          { key: 'waktu', label: 'Waktu' },
+          { key: 'fase', label: 'Fase' },
+          { key: 'lokasi_perimeter', label: 'Lokasi Perimeter' },
+          { key: 'kategori_kejadian', label: 'Kategori Kejadian' },
           { key: 'airline', label: 'Airline' },
-          { key: 'kategori_kejadian', label: 'Kategori' },
-          { key: 'lokasi_perimeter', label: 'Lokasi' },
-          { key: 'komponen_pesawat', label: 'Komponen' },
-          { key: 'kondisi_kerusakan', label: 'Kerusakan' }
+          { key: 'runway_use', label: 'Runway Use' },
+          { key: 'komponen_pesawat', label: 'Komponen Pesawat' },
+          { key: 'dampak_pada_pesawat', label: 'Dampak Pada Pesawat' },
+          { key: 'kondisi_kerusakan', label: 'Kondisi Kerusakan' },
+          { key: 'tindakan_perbaikan', label: 'Tindakan Perbaikan' },
+          { key: 'sumber_informasi', label: 'Sumber Informasi' },
+          { key: 'remark', label: 'Remark' },
+          { key: 'deskripsi', label: 'Deskripsi' },
+          { key: 'dokumentasi', label: 'Dokumentasi' },
+          { key: 'jenis_pesawat', label: 'Jenis Pesawat' }
         ];
       case 'bird-species':
         return [
+          { key: 'longitude', label: 'Longitude' },
+          { key: 'latitude', label: 'Latitude' },
+          { key: 'lokasi', label: 'Lokasi' },
+          { key: 'titik', label: 'Titik' },
           { key: 'tanggal', label: 'Tanggal' },
+          { key: 'jam', label: 'Jam' },
+          { key: 'waktu', label: 'Waktu' },
+          { key: 'cuaca', label: 'Cuaca' },
           { key: 'jenis_burung', label: 'Jenis Burung' },
           { key: 'nama_ilmiah', label: 'Nama Ilmiah' },
-          { key: 'lokasi', label: 'Lokasi' },
-          { key: 'jumlah_burung', label: 'Jumlah' },
-          { key: 'cuaca', label: 'Cuaca' }
+          { key: 'jumlah_burung', label: 'Jumlah Burung' },
+          { key: 'keterangan', label: 'Keterangan' },
+          { key: 'dokumentasi', label: 'Dokumentasi' }
         ];
       case 'traffic-flight':
         return [
-          { key: 'flight_number', label: 'Flight Number' },
-          { key: 'airline', label: 'Airline' },
-          { key: 'departure_time', label: 'Departure' },
-          { key: 'arrival_time', label: 'Arrival' },
-          { key: 'aircraft_type', label: 'Aircraft' },
-          { key: 'passengers', label: 'Passengers' }
+          { key: 'no', label: 'No' },
+          { key: 'act_type', label: 'Act Type' },
+          { key: 'reg_no', label: 'Reg No' },
+          { key: 'opr', label: 'Operator' },
+          { key: 'flight_number_origin', label: 'Flight No (Org)' },
+          { key: 'flight_number_dest', label: 'Flight No (Dest)' },
+          { key: 'ata', label: 'ATA' },
+          { key: 'block_on', label: 'Block On' },
+          { key: 'block_off', label: 'Block Off' },
+          { key: 'atd', label: 'ATD' },
+          { key: 'ground_time', label: 'Ground Time' },
+          { key: 'org', label: 'ORG' },
+          { key: 'des', label: 'DES' },
+          { key: 'ps', label: 'PS' },
+          { key: 'runway', label: 'Runway' },
+          { key: 'avio_a', label: 'Avio A' },
+          { key: 'avio_d', label: 'Avio D' },
+          { key: 'f_stat', label: 'F Stat' },
+          { key: 'bulan', label: 'Bulan' },
+          { key: 'tahun', label: 'Tahun' }
         ];
       default:
         return [];
@@ -230,13 +262,25 @@ export default function DataTable({ dataType }: DataTableProps) {
 
   const formatValue = (value: unknown, key: string): string => {
     if (value === null || value === undefined) return '-';
-    if (typeof value === 'string' && (key.includes('tanggal') || key.includes('time'))) {
-      try {
-        return new Date(value).toLocaleDateString('id-ID');
-      } catch {
-        return value;
+
+    // Handle ISO date strings
+    if (typeof value === 'string') {
+      if (key === 'tanggal') {
+        const d = new Date(value);
+        return isNaN(d.getTime()) ? value : d.toLocaleDateString('id-ID');
       }
+      if (key === 'jam') {
+        const d = new Date(value);
+        return isNaN(d.getTime()) ? value : d.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', hour12: false });
+      }
+      // fallback for any other ISO-like strings that look like dates
+      if (/^\d{4}-\d{2}-\d{2}T/.test(value)) {
+        const d = new Date(value);
+        return isNaN(d.getTime()) ? value : d.toLocaleString('id-ID');
+      }
+      return value;
     }
+
     return String(value);
   };
 
@@ -265,15 +309,17 @@ export default function DataTable({ dataType }: DataTableProps) {
             <span className="text-sm">entries</span>
           </div>
           
-          <label className="flex items-center gap-2 text-sm">
-            <input
-              type="checkbox"
-              checked={showDeleted}
-              onChange={(e) => setShowDeleted(e.target.checked)}
-              className="rounded"
-            />
-            Show Deleted
-          </label>
+          {dataType !== 'traffic-flight' && (
+            <label className="flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={showDeleted}
+                onChange={(e) => setShowDeleted(e.target.checked)}
+                className="rounded"
+              />
+              Show Deleted
+            </label>
+          )}
         </div>
 
         <div className="flex items-center gap-4">
@@ -315,9 +361,11 @@ export default function DataTable({ dataType }: DataTableProps) {
                   {column.label}
                 </th>
               ))}
-              <th className="border border-gray-300 px-4 py-2 text-center text-sm font-medium text-gray-700 w-32">
-                Actions
-              </th>
+              {dataType !== 'traffic-flight' && (
+                <th className="border border-gray-300 px-4 py-2 text-center text-sm font-medium text-gray-700 w-32">
+                  Actions
+                </th>
+              )}
             </tr>
           </thead>
           <tbody>
@@ -329,7 +377,7 @@ export default function DataTable({ dataType }: DataTableProps) {
               </tr>
             ) : data.length === 0 ? (
               <tr>
-                <td colSpan={columns.length + 1} className="border border-gray-300 px-4 py-8 text-center text-gray-500">
+                <td colSpan={columns.length + (dataType !== 'traffic-flight' ? 1 : 0)} className="border border-gray-300 px-4 py-8 text-center text-gray-500">
                   No data available
                 </td>
               </tr>
@@ -344,29 +392,31 @@ export default function DataTable({ dataType }: DataTableProps) {
                       {formatValue(row[column.key], column.key)}
                     </td>
                   ))}
-                  <td className="border border-gray-300 px-4 py-2 text-center">
-                    <div className="flex justify-center gap-2">
-                      {row.deletedAt ? (
-                        <button
-                          onClick={() => handleRestore(String(row.id))}
-                          className="bg-green-500 hover:bg-green-600 text-white p-1 rounded text-xs flex items-center gap-1"
-                          title="Restore"
-                        >
-                          <RotateCcw className="w-3 h-3" />
-                          Undo
-                        </button>
-                      ) : (
-                        <button
-                          onClick={() => handleDelete(String(row.id))}
-                          className="bg-red-500 hover:bg-red-600 text-white p-1 rounded text-xs flex items-center gap-1"
-                          title="Delete"
-                        >
-                          <Trash2 className="w-3 h-3" />
-                          Delete
-                        </button>
-                      )}
-                    </div>
-                  </td>
+                  {dataType !== 'traffic-flight' && (
+                    <td className="border border-gray-300 px-4 py-2 text-center">
+                      <div className="flex justify-center gap-2">
+                        {row.deletedAt ? (
+                          <button
+                            onClick={() => handleRestore(String(row.id))}
+                            className="bg-green-500 hover:bg-green-600 text-white p-1 rounded text-xs flex items-center gap-1"
+                            title="Restore"
+                          >
+                            <RotateCcw className="w-3 h-3" />
+                            Undo
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => handleDelete(String(row.id))}
+                            className="bg-red-500 hover:bg-red-600 text-white p-1 rounded text-xs flex items-center gap-1"
+                            title="Delete"
+                          >
+                            <Trash2 className="w-3 h-3" />
+                            Delete
+                          </button>
+                        )}
+                      </div>
+                    </td>
+                  )}
                 </tr>
               ))
             )}

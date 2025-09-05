@@ -4,7 +4,8 @@ import { useState } from "react";
 import type { FormEvent } from "react";
 
 interface BirdSpeciesFormData {
-  titik_koordinat: string;
+  longitude: string;
+  latitude: string;
   lokasi: string;
   titik: string;
   tanggal: string;
@@ -24,7 +25,8 @@ type BirdSpeciesFormProps = {
 
 export default function BirdSpeciesForm({ onSubmit, isSubmitting = false }: BirdSpeciesFormProps) {
   const [formData, setFormData] = useState<BirdSpeciesFormData>({
-    titik_koordinat: '',
+    longitude: '',
+    latitude: '',
     lokasi: '',
     titik: '',
     tanggal: '',
@@ -37,12 +39,42 @@ export default function BirdSpeciesForm({ onSubmit, isSubmitting = false }: Bird
     keterangan: ''
   });
 
+  const mapWaktu = (time: string): string => {
+    if (!time) return '';
+    const hour = Number(time.split(':')[0]);
+    if (hour >= 0 && hour <= 2) return 'Dini Hari';
+    if (hour >= 3 && hour <= 5) return 'Subuh';
+    if (hour >= 6 && hour <= 11) return 'Pagi';
+    if (hour >= 12 && hour <= 15) return 'Siang';
+    if (hour >= 16 && hour <= 18) return 'Sore';
+    return 'Malam';
+  };
+
+  const normalizeSpaces = (s: string) => s.replace(/\s+/g, ' ').trim();
+  const toTitleCaseWords = (s: string) => normalizeSpaces(s).toLowerCase().split(' ').map(w => w ? w[0].toUpperCase() + w.slice(1) : '').join(' ');
+  const toScientificCase = (s: string) => {
+    const words = normalizeSpaces(s).toLowerCase().split(' ');
+    if (words.length === 0) return '';
+    const first = words[0] ? words[0][0].toUpperCase() + words[0].slice(1) : '';
+    return [first, ...words.slice(1)].join(' ');
+  };
+
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: value
-    }));
+    setFormData(prev => {
+      const next = { ...prev } as BirdSpeciesFormData;
+      if (name === 'jam') {
+        next.jam = value;
+        next.waktu = mapWaktu(value);
+      } else if (name === 'jenis_burung') {
+        next.jenis_burung = toTitleCaseWords(value);
+      } else if (name === 'nama_ilmiah') {
+        next.nama_ilmiah = toScientificCase(value);
+      } else if (name in prev) {
+        (next as any)[name] = value;
+      }
+      return next;
+    });
   };
 
   const handleSubmit = async (e: FormEvent) => {
@@ -52,7 +84,8 @@ export default function BirdSpeciesForm({ onSubmit, isSubmitting = false }: Bird
     }
     // Reset form after successful submission
     setFormData({
-      titik_koordinat: '',
+      longitude: '',
+      latitude: '',
       lokasi: '',
       titik: '',
       tanggal: '',
@@ -77,15 +110,30 @@ export default function BirdSpeciesForm({ onSubmit, isSubmitting = false }: Bird
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="form-group">
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Titik Koordinat
+                Longitude
               </label>
               <input
                 type="text"
-                name="titik_koordinat"
-                value={formData.titik_koordinat}
+                name="longitude"
+                value={formData.longitude}
                 onChange={handleInputChange}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                placeholder="Masukkan titik koordinat"
+                placeholder="Masukkan longitude"
+                required
+              />
+            </div>
+
+            <div className="form-group">
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Latitude
+              </label>
+              <input
+                type="text"
+                name="latitude"
+                value={formData.latitude}
+                onChange={handleInputChange}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                placeholder="Masukkan latitude"
                 required
               />
             </div>
@@ -94,30 +142,43 @@ export default function BirdSpeciesForm({ onSubmit, isSubmitting = false }: Bird
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Lokasi
               </label>
-              <input
-                type="text"
+              <select
                 name="lokasi"
                 value={formData.lokasi}
                 onChange={handleInputChange}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                placeholder="Masukkan lokasi"
                 required
-              />
+              >
+                <option value="">Pilih lokasi</option>
+                <option value="Dalam">Dalam</option>
+                <option value="Luar Barat">Luar Barat</option>
+                <option value="Luar Timur">Luar Timur</option>
+                <option value="Luar Selatan">Luar Selatan</option>
+                <option value="Luar Utara">Luar Utara</option>
+              </select>
             </div>
 
             <div className="form-group">
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Titik
               </label>
-              <input
-                type="text"
+              <select
                 name="titik"
                 value={formData.titik}
                 onChange={handleInputChange}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                placeholder="Masukkan titik"
                 required
-              />
+              >
+                <option value="">Pilih titik</option>
+                <option value="1">1</option>
+                <option value="2">2</option>
+                <option value="3">3</option>
+                <option value="4">4</option>
+                <option value="5">5</option>
+                <option value="6">6</option>
+                <option value="7">7</option>
+                <option value="8">8</option>
+              </select>
             </div>
 
             <div className="form-group">
@@ -157,8 +218,9 @@ export default function BirdSpeciesForm({ onSubmit, isSubmitting = false }: Bird
                 name="waktu"
                 value={formData.waktu}
                 onChange={handleInputChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                placeholder="Masukkan waktu"
+                readOnly
+                className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                placeholder="Waktu"
                 required
               />
             </div>
@@ -176,9 +238,9 @@ export default function BirdSpeciesForm({ onSubmit, isSubmitting = false }: Bird
               >
                 <option value="">Pilih cuaca</option>
                 <option value="Cerah">Cerah</option>
+                <option value="Berawan">Cerah Berawan</option>
                 <option value="Berawan">Berawan</option>
                 <option value="Hujan">Hujan</option>
-                <option value="Berkabut">Berkabut</option>
               </select>
             </div>
 
@@ -247,11 +309,10 @@ export default function BirdSpeciesForm({ onSubmit, isSubmitting = false }: Bird
             <button
               type="submit"
               disabled={isSubmitting}
-              className={`px-8 py-3 rounded-lg font-medium transition-colors ${
-                isSubmitting
+              className={`px-8 py-3 rounded-lg font-medium transition-colors ${isSubmitting
                   ? 'bg-gray-400 text-white cursor-not-allowed'
                   : 'bg-gradient-to-r from-[#72BB34] to-[#40A3DC] text-white hover:opacity-90'
-              }`}
+                }`}
             >
               {isSubmitting ? 'Menyimpan...' : 'Submit Data'}
             </button>

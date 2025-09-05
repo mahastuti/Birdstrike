@@ -13,20 +13,12 @@ export default function BirdStrikeInput() {
     setSubmitMessage("");
 
     try {
-      const formData = new FormData();
-
-      // Add all form fields to FormData
-      Object.entries(data).forEach(([key, value]) => {
-        if (key === 'dokumentasi_form' && value instanceof File) {
-          formData.append(key, value);
-        } else if (value !== null) {
-          formData.append(key, value.toString());
-        }
-      });
-
       const response = await fetch('/api/bird-strike', {
         method: 'POST',
-        body: formData,
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data),
       });
 
       const result = await response.json();

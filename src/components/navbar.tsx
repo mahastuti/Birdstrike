@@ -74,7 +74,7 @@ export default function Navbar() {
             src={assets.logo}
             alt="Logo"
             priority
-            className="absolute left-[65px] cursor-pointer object-contain h-20 md:h-20 ml-0 w-auto"
+            className="absolute left-[13px] cursor-pointer object-contain h-32 md:h-32 ml-0 w-auto"
             onClick={() => window.open("https://www.injourneyairports.id/", "_blank")}
           />
         </div>

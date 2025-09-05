@@ -16,10 +16,11 @@ interface BirdStrikeFormData {
   komponen_pesawat: string;
   dampak_pada_pesawat: string;
   kondisi_kerusakan: string;
-  tindakan_lanjut: string;
+  tindakan_perbaikan: string;
   sumber_informasi: string;
   deskripsi: string;
-  dokumentasi_form: File | null;
+  dokumentasi: string;
+  jenis_pesawat: string;
 }
 
 type BirdStrikeFormProps = {
@@ -41,10 +42,11 @@ export default function BirdStrikeForm({ onSubmit, isSubmitting = false }: BirdS
     komponen_pesawat: "",
     dampak_pada_pesawat: "",
     kondisi_kerusakan: "",
-    tindakan_lanjut: "",
+    tindakan_perbaikan: "",
     sumber_informasi: "",
     deskripsi: "",
-    dokumentasi_form: null,
+    dokumentasi: "",
+    jenis_pesawat: "",
   });
 
   const handleSubmit = async (e: FormEvent) => {
@@ -66,10 +68,11 @@ export default function BirdStrikeForm({ onSubmit, isSubmitting = false }: BirdS
       komponen_pesawat: "",
       dampak_pada_pesawat: "",
       kondisi_kerusakan: "",
-      tindakan_lanjut: "",
+      tindakan_perbaikan: "",
       sumber_informasi: "",
       deskripsi: "",
-      dokumentasi_form: null,
+      dokumentasi: "",
+      jenis_pesawat: "",
     });
   };
 
@@ -271,16 +274,16 @@ export default function BirdStrikeForm({ onSubmit, isSubmitting = false }: BirdS
 
       <div className="input-group">
         <label className="block text-sm font-medium text-gray-700 mb-2">
-          Tindakan Lanjut
+          Tindakan Perbaikan
         </label>
         <textarea
-          value={formData.tindakan_lanjut}
+          value={formData.tindakan_perbaikan}
           onChange={(e) =>
-            setFormData({ ...formData, tindakan_lanjut: e.target.value })
+            setFormData({ ...formData, tindakan_perbaikan: e.target.value })
           }
           rows={3}
           className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-          placeholder="Masukkan tindakan lanjut yang dilakukan"
+          placeholder="Masukkan tindakan perbaikan yang dilakukan"
           required
         />
       </div>
@@ -317,21 +320,32 @@ export default function BirdStrikeForm({ onSubmit, isSubmitting = false }: BirdS
 
       <div className="input-group">
         <label className="block text-sm font-medium text-gray-700 mb-2">
-          Dokumentasi Form (Upload Image)
+          Dokumentasi
         </label>
         <input
-          type="file"
-          accept="image/*"
+          type="text"
+          value={formData.dokumentasi}
           onChange={(e) =>
-            setFormData({ ...formData, dokumentasi_form: e.target.files?.[0] || null })
+            setFormData({ ...formData, dokumentasi: e.target.value })
           }
           className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          placeholder="Masukkan URL atau path dokumentasi"
         />
-        {formData.dokumentasi_form && (
-          <p className="text-sm text-gray-600 mt-1">
-            File dipilih: {formData.dokumentasi_form.name}
-          </p>
-        )}
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="input-group">
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Jenis Pesawat
+          </label>
+          <input
+            type="text"
+            value={formData.jenis_pesawat}
+            onChange={(e) => setFormData({ ...formData, jenis_pesawat: e.target.value })}
+            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            placeholder="Masukkan jenis pesawat"
+          />
+        </div>
       </div>
 
       <div className="flex justify-center pt-6">

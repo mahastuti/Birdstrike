@@ -12,13 +12,20 @@ export async function GET(request: NextRequest) {
     const skip = (page - 1) * limit;
 
     const where = {
-      deletedAt: showDeleted ? { not: null } : null,
       ...(search && {
         OR: [
-          { flight_number: { contains: search, mode: 'insensitive' as const } },
-          { airline: { contains: search, mode: 'insensitive' as const } },
-          { aircraft_type: { contains: search, mode: 'insensitive' as const } },
-          { route: { contains: search, mode: 'insensitive' as const } },
+          { no: { contains: search, mode: 'insensitive' as const } },
+          { act_type: { contains: search, mode: 'insensitive' as const } },
+          { reg_no: { contains: search, mode: 'insensitive' as const } },
+          { opr: { contains: search, mode: 'insensitive' as const } },
+          { flight_number_origin: { contains: search, mode: 'insensitive' as const } },
+          { flight_number_dest: { contains: search, mode: 'insensitive' as const } },
+          { org: { contains: search, mode: 'insensitive' as const } },
+          { des: { contains: search, mode: 'insensitive' as const } },
+          { runway: { contains: search, mode: 'insensitive' as const } },
+          { f_stat: { contains: search, mode: 'insensitive' as const } },
+          { bulan: { contains: search, mode: 'insensitive' as const } },
+          { tahun: { contains: search, mode: 'insensitive' as const } },
         ]
       })
     };
@@ -26,16 +33,33 @@ export async function GET(request: NextRequest) {
     const [data, total] = await Promise.all([
       prisma.trafficFlight.findMany({
         where,
-        orderBy: { createdAt: 'desc' },
+        orderBy: { id: 'desc' },
         skip,
         take: limit,
       }),
       prisma.trafficFlight.count({ where })
     ]);
 
+    const serialize = (value: unknown): any => {
+      if (value === null || value === undefined) return value;
+      if (typeof value === 'bigint') return value.toString();
+      if (value instanceof Date) return value.toISOString();
+      if (Array.isArray(value)) return value.map(serialize);
+      if (typeof value === 'object') {
+        const out: Record<string, any> = {};
+        for (const [k, v] of Object.entries(value as Record<string, any>)) {
+          out[k] = serialize(v);
+        }
+        return out;
+      }
+      return value;
+    };
+
+    const safeData = serialize(data);
+
     return NextResponse.json({
       success: true,
-      data,
+      data: safeData,
       pagination: {
         page,
         limit,
@@ -64,9 +88,8 @@ export async function DELETE(request: NextRequest) {
       );
     }
 
-    await prisma.trafficFlight.update({
-      where: { id: BigInt(id) },
-      data: { deletedAt: new Date() }
+    await prisma.trafficFlight.delete({
+      where: { id: BigInt(id) }
     });
 
     return NextResponse.json({
@@ -82,40 +105,9 @@ export async function DELETE(request: NextRequest) {
   }
 }
 
-export async function PATCH(request: NextRequest) {
-  try {
-    const { searchParams } = new URL(request.url);
-    const id = searchParams.get('id');
-    const action = searchParams.get('action');
-
-    if (!id) {
-      return NextResponse.json(
-        { success: false, message: 'ID is required' },
-        { status: 400 }
-      );
-    }
-
-    if (action === 'restore') {
-      await prisma.trafficFlight.update({
-        where: { id: BigInt(id) },
-        data: { deletedAt: null }
-      });
-
-      return NextResponse.json({
-        success: true,
-        message: 'Data berhasil dipulihkan'
-      });
-    }
-
-    return NextResponse.json(
-      { success: false, message: 'Invalid action' },
-      { status: 400 }
-    );
-  } catch (error) {
-    console.error('Error restoring traffic flight data:', error);
-    return NextResponse.json(
-      { success: false, message: 'Failed to restore data' },
-      { status: 500 }
-    );
-  }
+export async function PATCH() {
+  return NextResponse.json(
+    { success: false, message: 'Restore tidak didukung untuk data Traffic Flight' },
+    { status: 400 }
+  );
 }

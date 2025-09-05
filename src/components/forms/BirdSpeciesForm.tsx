@@ -1,5 +1,3 @@
-"use client";
-
 import { useState } from "react";
 import type { FormEvent } from "react";
 
@@ -16,6 +14,7 @@ interface BirdSpeciesFormData {
   nama_ilmiah: string;
   jumlah_burung: string;
   keterangan: string;
+  dokumentasi: string;
 }
 
 type BirdSpeciesFormProps = {
@@ -36,7 +35,8 @@ export default function BirdSpeciesForm({ onSubmit, isSubmitting = false }: Bird
     jenis_burung: '',
     nama_ilmiah: '',
     jumlah_burung: '',
-    keterangan: ''
+    keterangan: '',
+    dokumentasi: '',
   });
 
   const mapWaktu = (time: string): string => {
@@ -77,12 +77,25 @@ export default function BirdSpeciesForm({ onSubmit, isSubmitting = false }: Bird
     });
   };
 
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) {
+      setFormData(prev => ({ ...prev, dokumentasi: '' }));
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = typeof reader.result === 'string' ? reader.result : '';
+      setFormData(prev => ({ ...prev, dokumentasi: result }));
+    };
+    reader.readAsDataURL(file);
+  };
+
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     if (onSubmit) {
       await onSubmit(formData);
     }
-    // Reset form after successful submission
     setFormData({
       longitude: '',
       latitude: '',
@@ -95,7 +108,8 @@ export default function BirdSpeciesForm({ onSubmit, isSubmitting = false }: Bird
       jenis_burung: '',
       nama_ilmiah: '',
       jumlah_burung: '',
-      keterangan: ''
+      keterangan: '',
+      dokumentasi: '',
     });
   };
 
@@ -109,9 +123,7 @@ export default function BirdSpeciesForm({ onSubmit, isSubmitting = false }: Bird
         <div className="p-6 space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="form-group">
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Longitude
-              </label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Longitude</label>
               <input
                 type="text"
                 name="longitude"
@@ -124,9 +136,7 @@ export default function BirdSpeciesForm({ onSubmit, isSubmitting = false }: Bird
             </div>
 
             <div className="form-group">
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Latitude
-              </label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Latitude</label>
               <input
                 type="text"
                 name="latitude"
@@ -139,9 +149,7 @@ export default function BirdSpeciesForm({ onSubmit, isSubmitting = false }: Bird
             </div>
 
             <div className="form-group">
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Lokasi
-              </label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Lokasi</label>
               <select
                 name="lokasi"
                 value={formData.lokasi}
@@ -159,9 +167,7 @@ export default function BirdSpeciesForm({ onSubmit, isSubmitting = false }: Bird
             </div>
 
             <div className="form-group">
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Titik
-              </label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Titik</label>
               <select
                 name="titik"
                 value={formData.titik}
@@ -182,9 +188,7 @@ export default function BirdSpeciesForm({ onSubmit, isSubmitting = false }: Bird
             </div>
 
             <div className="form-group">
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Tanggal
-              </label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Tanggal</label>
               <input
                 type="date"
                 name="tanggal"
@@ -196,9 +200,7 @@ export default function BirdSpeciesForm({ onSubmit, isSubmitting = false }: Bird
             </div>
 
             <div className="form-group">
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Jam
-              </label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Jam</label>
               <input
                 type="time"
                 name="jam"
@@ -210,9 +212,7 @@ export default function BirdSpeciesForm({ onSubmit, isSubmitting = false }: Bird
             </div>
 
             <div className="form-group">
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Waktu
-              </label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Waktu</label>
               <input
                 type="text"
                 name="waktu"
@@ -226,9 +226,7 @@ export default function BirdSpeciesForm({ onSubmit, isSubmitting = false }: Bird
             </div>
 
             <div className="form-group">
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Cuaca
-              </label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Cuaca</label>
               <select
                 name="cuaca"
                 value={formData.cuaca}
@@ -245,9 +243,7 @@ export default function BirdSpeciesForm({ onSubmit, isSubmitting = false }: Bird
             </div>
 
             <div className="form-group">
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Jenis Burung
-              </label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Jenis Burung</label>
               <input
                 type="text"
                 name="jenis_burung"
@@ -260,9 +256,7 @@ export default function BirdSpeciesForm({ onSubmit, isSubmitting = false }: Bird
             </div>
 
             <div className="form-group">
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Nama Ilmiah
-              </label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Nama Ilmiah</label>
               <input
                 type="text"
                 name="nama_ilmiah"
@@ -275,9 +269,7 @@ export default function BirdSpeciesForm({ onSubmit, isSubmitting = false }: Bird
             </div>
 
             <div className="form-group">
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Jumlah Burung
-              </label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Jumlah Burung</label>
               <input
                 type="number"
                 name="jumlah_burung"
@@ -292,9 +284,7 @@ export default function BirdSpeciesForm({ onSubmit, isSubmitting = false }: Bird
           </div>
 
           <div className="form-group">
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Keterangan
-            </label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Keterangan</label>
             <textarea
               name="keterangan"
               value={formData.keterangan}
@@ -302,6 +292,16 @@ export default function BirdSpeciesForm({ onSubmit, isSubmitting = false }: Bird
               rows={4}
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               placeholder="Masukkan keterangan tambahan"
+            />
+          </div>
+
+          <div className="form-group">
+            <label className="block text-sm font-medium text-gray-700 mb-1">Dokumentasi (png, jpg, jpeg, pdf)</label>
+            <input
+              type="file"
+              accept=".png,.jpg,.jpeg,.pdf"
+              onChange={handleFileChange}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent file:bg-gray-700 file:text-white file:hover:bg-gray-800 file:border-0 file:rounded-md file:px-4 file:py-2 file:mr-3 bg-gray-100"
             />
           </div>
 

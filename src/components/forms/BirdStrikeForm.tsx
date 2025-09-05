@@ -1,5 +1,3 @@
-"use client";
-
 import { useState } from "react";
 import type { FormEvent } from "react";
 
@@ -12,6 +10,7 @@ interface BirdStrikeFormData {
   kategori_kejadian: string;
   remark: string;
   airline: string;
+  jenis_pesawat: string;
   runway_use: string;
   komponen_pesawat: string;
   dampak_pada_pesawat: string;
@@ -20,7 +19,6 @@ interface BirdStrikeFormData {
   sumber_informasi: string;
   deskripsi: string;
   dokumentasi: string;
-  jenis_pesawat: string;
 }
 
 type BirdStrikeFormProps = {
@@ -38,6 +36,7 @@ export default function BirdStrikeForm({ onSubmit, isSubmitting = false }: BirdS
     kategori_kejadian: "",
     remark: "",
     airline: "",
+    jenis_pesawat: "",
     runway_use: "",
     komponen_pesawat: "",
     dampak_pada_pesawat: "",
@@ -46,15 +45,38 @@ export default function BirdStrikeForm({ onSubmit, isSubmitting = false }: BirdS
     sumber_informasi: "",
     deskripsi: "",
     dokumentasi: "",
-    jenis_pesawat: "",
   });
+
+  const mapWaktu = (time: string): string => {
+    if (!time) return "";
+    const hour = Number(time.split(":")[0]);
+    if (hour >= 0 && hour <= 2) return "Dini Hari";
+    if (hour >= 3 && hour <= 5) return "Subuh";
+    if (hour >= 6 && hour <= 11) return "Pagi";
+    if (hour >= 12 && hour <= 15) return "Siang";
+    if (hour >= 16 && hour <= 18) return "Sore";
+    return "Malam";
+  };
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) {
+      setFormData(prev => ({ ...prev, dokumentasi: "" }));
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = typeof reader.result === 'string' ? reader.result : '';
+      setFormData(prev => ({ ...prev, dokumentasi: result }));
+    };
+    reader.readAsDataURL(file);
+  };
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     if (onSubmit) {
       await onSubmit(formData);
     }
-    // Reset form after successful submission
     setFormData({
       tanggal: "",
       jam: "",
@@ -64,6 +86,7 @@ export default function BirdStrikeForm({ onSubmit, isSubmitting = false }: BirdS
       kategori_kejadian: "",
       remark: "",
       airline: "",
+      jenis_pesawat: "",
       runway_use: "",
       komponen_pesawat: "",
       dampak_pada_pesawat: "",
@@ -72,7 +95,6 @@ export default function BirdStrikeForm({ onSubmit, isSubmitting = false }: BirdS
       sumber_informasi: "",
       deskripsi: "",
       dokumentasi: "",
-      jenis_pesawat: "",
     });
   };
 
@@ -80,9 +102,7 @@ export default function BirdStrikeForm({ onSubmit, isSubmitting = false }: BirdS
     <form onSubmit={handleSubmit} className="space-y-6 max-w-4xl mx-auto">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="input-group">
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Tanggal
-          </label>
+          <label className="block text-sm font-medium text-gray-700 mb-2">Tanggal</label>
           <input
             type="date"
             value={formData.tanggal}
@@ -93,40 +113,30 @@ export default function BirdStrikeForm({ onSubmit, isSubmitting = false }: BirdS
         </div>
 
         <div className="input-group">
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Jam
-          </label>
+          <label className="block text-sm font-medium text-gray-700 mb-2">Jam</label>
           <input
             type="time"
             value={formData.jam}
-            onChange={(e) => setFormData({ ...formData, jam: e.target.value })}
+            onChange={(e) => setFormData({ ...formData, jam: e.target.value, waktu: mapWaktu(e.target.value) })}
             className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             required
           />
         </div>
 
         <div className="input-group">
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Waktu
-          </label>
-          <select
+          <label className="block text-sm font-medium text-gray-700 mb-2">Waktu</label>
+          <input
+            type="text"
             value={formData.waktu}
-            onChange={(e) => setFormData({ ...formData, waktu: e.target.value })}
-            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            readOnly
+            className="w-full px-4 py-3 border border-gray-300 rounded-lg bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            placeholder="Waktu"
             required
-          >
-            <option value="">Pilih Waktu</option>
-            <option value="Pagi">Pagi</option>
-            <option value="Siang">Siang</option>
-            <option value="Sore">Sore</option>
-            <option value="Malam">Malam</option>
-          </select>
+          />
         </div>
 
         <div className="input-group">
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Fase
-          </label>
+          <label className="block text-sm font-medium text-gray-700 mb-2">Fase</label>
           <select
             value={formData.fase}
             onChange={(e) => setFormData({ ...formData, fase: e.target.value })}
@@ -142,15 +152,11 @@ export default function BirdStrikeForm({ onSubmit, isSubmitting = false }: BirdS
         </div>
 
         <div className="input-group">
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Lokasi Perimeter
-          </label>
+          <label className="block text-sm font-medium text-gray-700 mb-2">Lokasi Perimeter</label>
           <input
             type="text"
             value={formData.lokasi_perimeter}
-            onChange={(e) =>
-              setFormData({ ...formData, lokasi_perimeter: e.target.value })
-            }
+            onChange={(e) => setFormData({ ...formData, lokasi_perimeter: e.target.value })}
             className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             placeholder="Masukkan lokasi perimeter"
             required
@@ -158,14 +164,10 @@ export default function BirdStrikeForm({ onSubmit, isSubmitting = false }: BirdS
         </div>
 
         <div className="input-group">
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Kategori Kejadian
-          </label>
+          <label className="block text-sm font-medium text-gray-700 mb-2">Kategori Kejadian</label>
           <select
             value={formData.kategori_kejadian}
-            onChange={(e) =>
-              setFormData({ ...formData, kategori_kejadian: e.target.value })
-            }
+            onChange={(e) => setFormData({ ...formData, kategori_kejadian: e.target.value })}
             className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             required
           >
@@ -177,9 +179,7 @@ export default function BirdStrikeForm({ onSubmit, isSubmitting = false }: BirdS
         </div>
 
         <div className="input-group">
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Airline
-          </label>
+          <label className="block text-sm font-medium text-gray-700 mb-2">Airline</label>
           <input
             type="text"
             value={formData.airline}
@@ -191,15 +191,22 @@ export default function BirdStrikeForm({ onSubmit, isSubmitting = false }: BirdS
         </div>
 
         <div className="input-group">
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Runway Use
-          </label>
+          <label className="block text-sm font-medium text-gray-700 mb-2">Jenis Pesawat</label>
+          <input
+            type="text"
+            value={formData.jenis_pesawat}
+            onChange={(e) => setFormData({ ...formData, jenis_pesawat: e.target.value })}
+            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            placeholder="Masukkan jenis pesawat"
+          />
+        </div>
+
+        <div className="input-group">
+          <label className="block text-sm font-medium text-gray-700 mb-2">Runway Use</label>
           <input
             type="text"
             value={formData.runway_use}
-            onChange={(e) =>
-              setFormData({ ...formData, runway_use: e.target.value })
-            }
+            onChange={(e) => setFormData({ ...formData, runway_use: e.target.value })}
             className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             placeholder="Contoh: 10/28"
             required
@@ -207,15 +214,11 @@ export default function BirdStrikeForm({ onSubmit, isSubmitting = false }: BirdS
         </div>
 
         <div className="input-group">
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Komponen Pesawat
-          </label>
+          <label className="block text-sm font-medium text-gray-700 mb-2">Komponen Pesawat</label>
           <input
             type="text"
             value={formData.komponen_pesawat}
-            onChange={(e) =>
-              setFormData({ ...formData, komponen_pesawat: e.target.value })
-            }
+            onChange={(e) => setFormData({ ...formData, komponen_pesawat: e.target.value })}
             className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             placeholder="Contoh: Engine, Wing, Nose"
             required
@@ -223,14 +226,10 @@ export default function BirdStrikeForm({ onSubmit, isSubmitting = false }: BirdS
         </div>
 
         <div className="input-group">
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Kondisi Kerusakan
-          </label>
+          <label className="block text-sm font-medium text-gray-700 mb-2">Kondisi Kerusakan</label>
           <select
             value={formData.kondisi_kerusakan}
-            onChange={(e) =>
-              setFormData({ ...formData, kondisi_kerusakan: e.target.value })
-            }
+            onChange={(e) => setFormData({ ...formData, kondisi_kerusakan: e.target.value })}
             className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             required
           >
@@ -244,9 +243,7 @@ export default function BirdStrikeForm({ onSubmit, isSubmitting = false }: BirdS
       </div>
 
       <div className="input-group">
-        <label className="block text-sm font-medium text-gray-700 mb-2">
-          Remark
-        </label>
+        <label className="block text-sm font-medium text-gray-700 mb-2">Remark</label>
         <textarea
           value={formData.remark}
           onChange={(e) => setFormData({ ...formData, remark: e.target.value })}
@@ -257,14 +254,10 @@ export default function BirdStrikeForm({ onSubmit, isSubmitting = false }: BirdS
       </div>
 
       <div className="input-group">
-        <label className="block text-sm font-medium text-gray-700 mb-2">
-          Dampak Pada Pesawat
-        </label>
+        <label className="block text-sm font-medium text-gray-700 mb-2">Dampak Pada Pesawat</label>
         <textarea
           value={formData.dampak_pada_pesawat}
-          onChange={(e) =>
-            setFormData({ ...formData, dampak_pada_pesawat: e.target.value })
-          }
+          onChange={(e) => setFormData({ ...formData, dampak_pada_pesawat: e.target.value })}
           rows={3}
           className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           placeholder="Deskripsikan dampak pada pesawat"
@@ -273,14 +266,10 @@ export default function BirdStrikeForm({ onSubmit, isSubmitting = false }: BirdS
       </div>
 
       <div className="input-group">
-        <label className="block text-sm font-medium text-gray-700 mb-2">
-          Tindakan Perbaikan
-        </label>
+        <label className="block text-sm font-medium text-gray-700 mb-2">Tindakan Perbaikan</label>
         <textarea
           value={formData.tindakan_perbaikan}
-          onChange={(e) =>
-            setFormData({ ...formData, tindakan_perbaikan: e.target.value })
-          }
+          onChange={(e) => setFormData({ ...formData, tindakan_perbaikan: e.target.value })}
           rows={3}
           className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           placeholder="Masukkan tindakan perbaikan yang dilakukan"
@@ -289,14 +278,10 @@ export default function BirdStrikeForm({ onSubmit, isSubmitting = false }: BirdS
       </div>
 
       <div className="input-group">
-        <label className="block text-sm font-medium text-gray-700 mb-2">
-          Sumber Informasi
-        </label>
+        <label className="block text-sm font-medium text-gray-700 mb-2">Sumber Informasi</label>
         <textarea
           value={formData.sumber_informasi}
-          onChange={(e) =>
-            setFormData({ ...formData, sumber_informasi: e.target.value })
-          }
+          onChange={(e) => setFormData({ ...formData, sumber_informasi: e.target.value })}
           rows={2}
           className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           placeholder="Masukkan sumber informasi"
@@ -305,9 +290,7 @@ export default function BirdStrikeForm({ onSubmit, isSubmitting = false }: BirdS
       </div>
 
       <div className="input-group">
-        <label className="block text-sm font-medium text-gray-700 mb-2">
-          Deskripsi
-        </label>
+        <label className="block text-sm font-medium text-gray-700 mb-2">Deskripsi</label>
         <textarea
           value={formData.deskripsi}
           onChange={(e) => setFormData({ ...formData, deskripsi: e.target.value })}
@@ -319,33 +302,13 @@ export default function BirdStrikeForm({ onSubmit, isSubmitting = false }: BirdS
       </div>
 
       <div className="input-group">
-        <label className="block text-sm font-medium text-gray-700 mb-2">
-          Dokumentasi
-        </label>
+        <label className="block text-sm font-medium text-gray-700 mb-2">Dokumentasi (png, pdf, jpeg, jpg)</label>
         <input
-          type="text"
-          value={formData.dokumentasi}
-          onChange={(e) =>
-            setFormData({ ...formData, dokumentasi: e.target.value })
-          }
-          className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-          placeholder="Masukkan URL atau path dokumentasi"
+          type="file"
+          accept=".png,.pdf,.jpeg,.jpg"
+          onChange={handleFileChange}
+          className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent file:bg-gray-700 file:text-white file:hover:bg-gray-800 file:border-0 file:rounded-md file:px-4 file:py-2 file:mr-3 bg-gray-100"
         />
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div className="input-group">
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Jenis Pesawat
-          </label>
-          <input
-            type="text"
-            value={formData.jenis_pesawat}
-            onChange={(e) => setFormData({ ...formData, jenis_pesawat: e.target.value })}
-            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            placeholder="Masukkan jenis pesawat"
-          />
-        </div>
       </div>
 
       <div className="flex justify-center pt-6">

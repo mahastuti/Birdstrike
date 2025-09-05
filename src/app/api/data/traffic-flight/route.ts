@@ -9,6 +9,12 @@ export async function GET(request: NextRequest) {
     const search = searchParams.get('search') || '';
     const showDeleted = searchParams.get('showDeleted') === 'true';
 
+    const sortBy = (searchParams.get('sortBy') || 'id');
+    const sortOrder = (searchParams.get('sortOrder') === 'asc' ? 'asc' : 'desc');
+
+    const allowedSort = new Set(['id','no','act_type','reg_no','opr','flight_number_origin','flight_number_dest','ata','block_on','block_off','atd','ground_time','org','des','ps','runway','avio_a','avio_d','f_stat','bulan','tahun']);
+    const orderBy: any = allowedSort.has(sortBy) ? { [sortBy]: sortOrder } : { id: 'desc' };
+
     const skip = (page - 1) * limit;
 
     const where = {
@@ -33,7 +39,7 @@ export async function GET(request: NextRequest) {
     const [data, total] = await Promise.all([
       prisma.trafficFlight.findMany({
         where,
-        orderBy: { id: 'desc' },
+        orderBy,
         skip,
         take: limit,
       }),
@@ -110,4 +116,41 @@ export async function PATCH() {
     { success: false, message: 'Restore tidak didukung untuk data Traffic Flight' },
     { status: 400 }
   );
+}
+
+export async function PUT(request: NextRequest) {
+  try {
+    const { searchParams } = new URL(request.url);
+    const id = searchParams.get('id');
+    if (!id) {
+      return NextResponse.json({ success: false, message: 'ID is required' }, { status: 400 });
+    }
+    const body = await request.json();
+
+    const data: any = {};
+    const fields = ['no','act_type','reg_no','opr','flight_number_origin','flight_number_dest','ata','block_on','block_off','atd','ground_time','org','des','ps','runway','avio_a','avio_d','f_stat','bulan','tahun'] as const;
+    for (const f of fields) {
+      if (f in body) (data as any)[f] = (body as any)[f];
+    }
+
+    const updated = await prisma.trafficFlight.update({ where: { id: BigInt(id) }, data });
+
+    const serialize = (value: unknown): any => {
+      if (value === null || value === undefined) return value;
+      if (typeof value === 'bigint') return value.toString();
+      if (value instanceof Date) return value.toISOString();
+      if (Array.isArray(value)) return value.map(serialize);
+      if (typeof value === 'object') {
+        const out: Record<string, any> = {};
+        for (const [k, v] of Object.entries(value as Record<string, any>)) out[k] = serialize(v);
+        return out;
+      }
+      return value;
+    };
+
+    return NextResponse.json({ success: true, data: serialize(updated) });
+  } catch (error) {
+    console.error('Error updating traffic flight:', error);
+    return NextResponse.json({ success: false, message: 'Failed to update data' }, { status: 500 });
+  }
 }

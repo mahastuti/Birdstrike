@@ -10,7 +10,17 @@ const compat = new FlatCompat({
 });
 
 const eslintConfig = [
+  // extend config Next.js (core-web-vitals + typescript)
   ...compat.extends("next/core-web-vitals", "next/typescript"),
+  // tambahan dari contohmu (disable rule tertentu)
+  ...compat.config({
+    extends: ["next"],
+    rules: {
+      "react/no-unescaped-entities": "off",
+      "@next/next/no-page-custom-font": "off",
+    },
+  }),
+  // ignore patterns
   {
     ignores: [
       "node_modules/**",

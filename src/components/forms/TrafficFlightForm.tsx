@@ -51,15 +51,21 @@ export default function TrafficFlightForm({ onSubmit, isSubmitting = false }: Tr
         {showInstructions && (
           <div className="mt-4 space-y-3 text-red-800">
             <div className="font-medium">1. Siapkan CSV</div>
-            <div className="font-medium">2. Contoh kolom yang benar (insert gambar)</div>
+            <div className="font-medium">2. Format dan susunan kolom (tambahkan kolom bulan dan tahun):</div>
             <div className="bg-white p-3 rounded border">
-              <p className="text-sm text-gray-700 mb-2">Format CSV yang benar:</p>
-              <div className="text-xs font-mono bg-gray-50 p-2 rounded">
-                <div>flight_number,airline,departure_time,arrival_time,aircraft_type</div>
-                <div>GA123,Garuda Indonesia,08:00,10:30,Boeing 737</div>
-                <div>QZ456,AirAsia,14:15,16:45,Airbus A320</div>
+              <p className="text-sm text-gray-700 mb-2">Header CSV:</p>
+              <div className="text-[11px] font-mono bg-gray-50 p-2 rounded overflow-x-auto">
+                <div>no,act_type,reg_no,opr,flight_number_origin,flight_number_dest,ata,block_on,block_off,atd,ground_time,org,des,ps,runway,avio_a,avio_d,f_stat,bulan,tahun</div>
               </div>
             </div>
+            <div className="bg-white p-3 rounded border">
+              <p className="text-sm text-gray-700 mb-2">Contoh data:</p>
+              <div className="text-[11px] font-mono bg-gray-50 p-2 rounded overflow-x-auto">
+                <div>1,B738,PKLKP,LNI,LNI681,LNI878,31/15:51,31/15:56,01/04:59,01/05:07,13:02:08,PKY,AMQ,018,28,0,0,NML,1,2025</div>
+                <div>2,A320,PKAZQ,AWQ,AWQ327,AWQ320,01/00:03,01/00:07,01/05:03,01/05:13,4:56:00,KUL,KUL,A03,28,1,1,NML,1,2025</div>
+              </div>
+            </div>
+            <div className="font-medium">3. Upload</div>
           </div>
         )}
       </div>

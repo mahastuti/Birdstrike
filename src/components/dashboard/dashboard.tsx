@@ -302,8 +302,19 @@ export default function Dashboard() {
                 <h2 className="text-2xl font-medium text-center text-white">GAMBAR</h2>
               </div>
               <div className="p-8">
-                <div className="h-96 bg-gray-100 border-2 border-gray-300 rounded-lg flex items-center justify-center">
-                  <p className="text-gray-700 text-lg">Image gallery will be displayed here</p>
+                <div className="h-[520px] bg-rose-200 border-2 border-rose-300 rounded-lg p-6 overflow-y-auto">
+                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-6">
+                    {[
+                      'png','pdf','pdf','pdf',
+                      'png','pdf','pdf','pdf',
+                      'png','pdf','pdf','pdf',
+                      'png','pdf','pdf','pdf'
+                    ].map((type, idx) => (
+                      <div key={idx} className="bg-white border border-gray-300 rounded-lg h-24 flex items-center justify-center shadow-sm">
+                        <span className="text-gray-600">{type}</span>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               </div>
             </div>

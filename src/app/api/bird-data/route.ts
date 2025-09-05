@@ -38,6 +38,7 @@ export async function POST(request: NextRequest) {
         nama_ilmiah: toScientificCase(data.nama_ilmiah),
         jumlah_burung: data.jumlah_burung ? parseInt(data.jumlah_burung) : null,
         keterangan: data.keterangan,
+        dokumentasi: data.dokumentasi ?? null,
       },
     });
 

@@ -1,14 +1,12 @@
-"use client";
-
 import { useState, useEffect, useCallback } from "react";
-import { Trash2, RotateCcw, Download, ChevronLeft, ChevronRight } from "lucide-react";
+import { Trash2, RotateCcw, Download, ChevronLeft, ChevronRight, Pencil } from "lucide-react";
 
 interface DataTableProps {
   dataType: 'bird-strike' | 'bird-species' | 'traffic-flight';
 }
 
 export default function DataTable({ dataType }: DataTableProps) {
-  const [data, setData] = useState<Record<string, unknown>[]>([]);
+  const [data, setData] = useState<Record<string, any>[]>([]);
   const [loading, setLoading] = useState(false);
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(10);
@@ -22,6 +20,13 @@ export default function DataTable({ dataType }: DataTableProps) {
   });
   const [message, setMessage] = useState('');
 
+  const [sortBy, setSortBy] = useState<string>('');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
+
+  const [isEditing, setIsEditing] = useState(false);
+  const [editingRow, setEditingRow] = useState<Record<string, any> | null>(null);
+  const [editValues, setEditValues] = useState<Record<string, any>>({});
+
   const fetchData = useCallback(async (signal?: AbortSignal) => {
     setLoading(true);
     try {
@@ -29,98 +34,58 @@ export default function DataTable({ dataType }: DataTableProps) {
         page: page.toString(),
         limit: limit.toString(),
         search,
-        showDeleted: showDeleted.toString()
+        showDeleted: showDeleted.toString(),
       });
+      if (sortBy) {
+        params.set('sortBy', sortBy);
+        params.set('sortOrder', sortOrder);
+      }
 
       const response = await fetch(`/api/data/${dataType}?${params}`, {
-        signal // Add abort signal for request cancellation
+        signal
       });
 
-      // Check if response is ok before reading body
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
-
-      // Check if request was aborted
-      if (signal?.aborted) {
-        return;
-      }
+      if (signal?.aborted) return;
 
       const result = await response.json();
-
-      // Only update state if request wasn't aborted
       if (!signal?.aborted && result.success) {
         setData(result.data);
         setPagination(result.pagination);
       }
     } catch (error) {
-      // Handle different types of errors gracefully
-      if (signal?.aborted) {
-        // Request was aborted - this is normal, don't log or update state
-        return;
-      }
-
-      if (error instanceof Error) {
-        if (error.name === 'AbortError') {
-          // Abort error but signal not aborted - still ignore
-          return;
-        }
+      if (signal?.aborted) return;
+      if (error instanceof Error && error.name !== 'AbortError') {
         console.error('Error fetching data:', error);
-      } else {
-        console.error('Unknown error fetching data:', error);
       }
     } finally {
-      // Only set loading to false if request wasn't aborted
-      if (!signal?.aborted) {
-        setLoading(false);
-      }
+      if (!signal?.aborted) setLoading(false);
     }
-  }, [page, limit, search, showDeleted, dataType]);
+  }, [page, limit, search, showDeleted, dataType, sortBy, sortOrder]);
 
   useEffect(() => {
     const controller = new AbortController();
-
-    // Add debouncing for search to prevent too many requests
     const timeoutId = setTimeout(() => {
       fetchData(controller.signal);
-    }, search ? 300 : 0); // 300ms debounce for search, immediate for other changes
+    }, search ? 300 : 0);
 
     return () => {
-      try {
-        // Safely abort the controller without throwing errors
-        if (!controller.signal.aborted) {
-          controller.abort();
-        }
-      } catch {
-        // Silently ignore abort errors during cleanup
-      }
+      try { if (!controller.signal.aborted) controller.abort(); } catch {}
       clearTimeout(timeoutId);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fetchData]);
 
   const handleDelete = async (id: string) => {
     try {
-      const response = await fetch(`/api/data/${dataType}?id=${id}`, {
-        method: 'DELETE'
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
+      const response = await fetch(`/api/data/${dataType}?id=${id}`, { method: 'DELETE' });
+      if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
       const result = await response.json();
-
       if (result.success) {
         setMessage(result.message);
         setTimeout(() => setMessage(''), 3000);
-        // Use a small delay to prevent race conditions with the main fetch
-        setTimeout(() => {
-          if (!loading) {
-            const newController = new AbortController();
-            fetchData(newController.signal);
-          }
-        }, 100);
+        setTimeout(() => { if (!loading) { const c = new AbortController(); fetchData(c.signal); } }, 100);
       } else {
         setMessage(result.message || 'Failed to delete data');
         setTimeout(() => setMessage(''), 3000);
@@ -134,26 +99,13 @@ export default function DataTable({ dataType }: DataTableProps) {
 
   const handleRestore = async (id: string) => {
     try {
-      const response = await fetch(`/api/data/${dataType}?id=${id}&action=restore`, {
-        method: 'PATCH'
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
+      const response = await fetch(`/api/data/${dataType}?id=${id}&action=restore`, { method: 'PATCH' });
+      if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
       const result = await response.json();
-
       if (result.success) {
         setMessage(result.message);
         setTimeout(() => setMessage(''), 3000);
-        // Use a small delay to prevent race conditions with the main fetch
-        setTimeout(() => {
-          if (!loading) {
-            const newController = new AbortController();
-            fetchData(newController.signal);
-          }
-        }, 100);
+        setTimeout(() => { if (!loading) { const c = new AbortController(); fetchData(c.signal); } }, 100);
       } else {
         setMessage(result.message || 'Failed to restore data');
         setTimeout(() => setMessage(''), 3000);
@@ -176,9 +128,7 @@ export default function DataTable({ dataType }: DataTableProps) {
           .map(header => {
             const value = row[header];
             if (value === null || value === undefined) return '';
-            if (typeof value === 'string' && value.includes(',')) {
-              return `"${value}"`;
-            }
+            if (typeof value === 'string' && value.includes(',')) return `"${value}"`;
             return String(value);
           })
           .join(',')
@@ -262,8 +212,6 @@ export default function DataTable({ dataType }: DataTableProps) {
 
   const formatValue = (value: unknown, key: string): string => {
     if (value === null || value === undefined) return '-';
-
-    // Handle ISO date strings
     if (typeof value === 'string') {
       if (key === 'tanggal') {
         const d = new Date(value);
@@ -273,32 +221,96 @@ export default function DataTable({ dataType }: DataTableProps) {
         const d = new Date(value);
         return isNaN(d.getTime()) ? value : d.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', hour12: false });
       }
-      // fallback for any other ISO-like strings that look like dates
       if (/^\d{4}-\d{2}-\d{2}T/.test(value)) {
         const d = new Date(value);
         return isNaN(d.getTime()) ? value : d.toLocaleString('id-ID');
       }
       return value;
     }
-
     return String(value);
   };
 
   const columns = getColumns();
 
+  const toggleSort = (key: string) => {
+    if (sortBy === key) {
+      setSortOrder(prev => (prev === 'asc' ? 'desc' : 'asc'));
+    } else {
+      setSortBy(key);
+      setSortOrder('asc');
+    }
+    setPage(1);
+  };
+
+  const toDateInput = (iso?: string) => {
+    if (!iso) return '';
+    const d = new Date(iso);
+    if (isNaN(d.getTime())) return '';
+    const yyyy = d.getUTCFullYear();
+    const mm = String(d.getUTCMonth() + 1).padStart(2, '0');
+    const dd = String(d.getUTCDate()).padStart(2, '0');
+    return `${yyyy}-${mm}-${dd}`;
+  };
+  const toTimeInput = (iso?: string) => {
+    if (!iso) return '';
+    const d = new Date(iso);
+    if (isNaN(d.getTime())) return '';
+    const hh = String(d.getUTCHours()).padStart(2, '0');
+    const mi = String(d.getUTCMinutes()).padStart(2, '0');
+    return `${hh}:${mi}`;
+  };
+
+  const openEdit = (row: Record<string, any>) => {
+    setEditingRow(row);
+    const initial: Record<string, any> = {};
+    for (const c of columns) {
+      if (c.key === 'tanggal') initial[c.key] = toDateInput(row[c.key]);
+      else if (c.key === 'jam') initial[c.key] = toTimeInput(row[c.key]);
+      else initial[c.key] = row[c.key] ?? '';
+    }
+    setEditValues(initial);
+    setIsEditing(true);
+  };
+
+  const saveEdit = async () => {
+    if (!editingRow) return;
+    const id = String(editingRow.id);
+    const body: Record<string, any> = {};
+    for (const c of columns) {
+      const k = c.key;
+      if (dataType === 'bird-species' && k === 'jumlah_burung') body[k] = editValues[k] ? String(editValues[k]) : '';
+      else body[k] = editValues[k];
+    }
+    try {
+      const res = await fetch(`/api/data/${dataType}?id=${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      });
+      const result = await res.json();
+      if (!res.ok || !result.success) throw new Error(result.message || 'Gagal mengupdate data');
+      setIsEditing(false);
+      setEditingRow(null);
+      const c = new AbortController();
+      fetchData(c.signal);
+      setMessage('Data berhasil diperbarui');
+      setTimeout(() => setMessage(''), 3000);
+    } catch (e) {
+      console.error(e);
+      setMessage('Gagal memperbarui data');
+      setTimeout(() => setMessage(''), 3000);
+    }
+  };
+
   return (
     <div className="bg-white border-2 border-gray-300 rounded-lg p-6">
-      {/* Header Controls */}
       <div className="flex justify-between items-center mb-6">
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-2">
             <span className="text-sm">Show</span>
             <select
               value={limit}
-              onChange={(e) => {
-                setLimit(Number(e.target.value));
-                setPage(1);
-              }}
+              onChange={(e) => { setLimit(Number(e.target.value)); setPage(1); }}
               className="border border-gray-300 rounded px-2 py-1 text-sm"
             >
               <option value={10}>10</option>
@@ -308,15 +320,9 @@ export default function DataTable({ dataType }: DataTableProps) {
             </select>
             <span className="text-sm">entries</span>
           </div>
-          
           {dataType !== 'traffic-flight' && (
             <label className="flex items-center gap-2 text-sm">
-              <input
-                type="checkbox"
-                checked={showDeleted}
-                onChange={(e) => setShowDeleted(e.target.checked)}
-                className="rounded"
-              />
+              <input type="checkbox" checked={showDeleted} onChange={(e) => setShowDeleted(e.target.checked)} className="rounded" />
               Show Deleted
             </label>
           )}
@@ -333,90 +339,71 @@ export default function DataTable({ dataType }: DataTableProps) {
               placeholder="Search..."
             />
           </div>
-          
-          <button
-            onClick={downloadData}
-            className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded flex items-center gap-2 text-sm"
-          >
+          <button onClick={downloadData} className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded flex items-center gap-2 text-sm">
             <Download className="w-4 h-4" />
             Download Data
           </button>
         </div>
       </div>
 
-      {/* Message */}
       {message && (
-        <div className="bg-green-100 border border-green-200 text-green-800 px-4 py-2 rounded mb-4 text-sm">
-          {message}
-        </div>
+        <div className="bg-green-100 border border-green-200 text-green-800 px-4 py-2 rounded mb-4 text-sm">{message}</div>
       )}
 
-      {/* Data Table */}
       <div className="overflow-x-auto">
         <table className="w-full border-collapse">
           <thead>
             <tr className="bg-gray-50">
-              {columns.map((column) => (
-                <th key={column.key} className="border border-gray-300 px-4 py-2 text-left text-sm font-medium text-gray-700">
-                  {column.label}
-                </th>
-              ))}
-              {dataType !== 'traffic-flight' && (
-                <th className="border border-gray-300 px-4 py-2 text-center text-sm font-medium text-gray-700 w-32">
-                  Actions
-                </th>
-              )}
+              {columns.map((column) => {
+                const active = sortBy === column.key;
+                return (
+                  <th key={column.key} className="border border-gray-300 px-4 py-2 text-left text-sm font-medium text-gray-700">
+                    <button onClick={() => toggleSort(column.key)} className="flex items-center gap-1">
+                      <span>{column.label}</span>
+                      <span className="text-xs text-gray-500">{active ? (sortOrder === 'asc' ? '▲' : '▼') : ''}</span>
+                    </button>
+                  </th>
+                );
+              })}
+              <th className="border border-gray-300 px-4 py-2 text-center text-sm font-medium text-gray-700 w-40">Actions</th>
             </tr>
           </thead>
           <tbody>
             {loading ? (
               <tr>
-                <td colSpan={columns.length + 1} className="border border-gray-300 px-4 py-8 text-center text-gray-500">
-                  Loading...
-                </td>
+                <td colSpan={columns.length + 1} className="border border-gray-300 px-4 py-8 text-center text-gray-500">Loading...</td>
               </tr>
             ) : data.length === 0 ? (
               <tr>
-                <td colSpan={columns.length + (dataType !== 'traffic-flight' ? 1 : 0)} className="border border-gray-300 px-4 py-8 text-center text-gray-500">
-                  No data available
-                </td>
+                <td colSpan={columns.length + 1} className="border border-gray-300 px-4 py-8 text-center text-gray-500">No data available</td>
               </tr>
             ) : (
               data.map((row, index) => (
-                <tr
-                  key={String(row.id)}
-                  className={`${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'} ${Boolean(row.deletedAt) ? 'opacity-50' : ''}`}
-                >
+                <tr key={String(row.id)} className={`${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'} ${row.deletedAt ? 'opacity-50' : ''}`}>
                   {columns.map((column) => (
-                    <td key={column.key} className="border border-gray-300 px-4 py-2 text-sm">
-                      {formatValue(row[column.key], column.key)}
-                    </td>
+                    <td key={column.key} className="border border-gray-300 px-4 py-2 text-sm">{formatValue(row[column.key], column.key)}</td>
                   ))}
-                  {dataType !== 'traffic-flight' && (
-                    <td className="border border-gray-300 px-4 py-2 text-center">
-                      <div className="flex justify-center gap-2">
-                        {row.deletedAt ? (
-                          <button
-                            onClick={() => handleRestore(String(row.id))}
-                            className="bg-green-500 hover:bg-green-600 text-white p-1 rounded text-xs flex items-center gap-1"
-                            title="Restore"
-                          >
+                  <td className="border border-gray-300 px-4 py-2 text-center">
+                    <div className="flex justify-center gap-2">
+                      <button onClick={() => openEdit(row)} className="bg-yellow-500 hover:bg-yellow-600 text-white p-1 rounded text-xs flex items-center gap-1" title="Edit">
+                        <Pencil className="w-3 h-3" />
+                        Edit
+                      </button>
+                      {dataType !== 'traffic-flight' && (
+                        row.deletedAt ? (
+                          <button onClick={() => handleRestore(String(row.id))} className="bg-green-500 hover:bg-green-600 text-white p-1 rounded text-xs flex items-center gap-1" title="Restore">
                             <RotateCcw className="w-3 h-3" />
                             Undo
                           </button>
                         ) : (
-                          <button
-                            onClick={() => handleDelete(String(row.id))}
-                            className="bg-red-500 hover:bg-red-600 text-white p-1 rounded text-xs flex items-center gap-1"
-                            title="Delete"
-                          >
+                          <button onClick={() => handleDelete(String(row.id))} className="bg-red-500 hover:bg-red-600 text-white p-1 rounded text-xs flex items-center gap-1" title="Delete">
                             <Trash2 className="w-3 h-3" />
                             Delete
                           </button>
-                        )}
-                      </div>
-                    </td>
-                  )}
+                        )
+                      )}
+                    </div>
+                  </td>
                 </tr>
               ))
             )}
@@ -424,36 +411,50 @@ export default function DataTable({ dataType }: DataTableProps) {
         </table>
       </div>
 
-      {/* Pagination */}
       <div className="flex justify-between items-center mt-6">
         <div className="text-sm text-gray-600">
           Showing {((page - 1) * limit) + 1} to {Math.min(page * limit, pagination.total)} of {pagination.total} entries
         </div>
-        
         <div className="flex items-center gap-2">
-          <button
-            onClick={() => setPage(page - 1)}
-            disabled={page === 1}
-            className="border border-gray-300 px-3 py-1 rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 flex items-center gap-1 text-sm"
-          >
+          <button onClick={() => setPage(page - 1)} disabled={page === 1} className="border border-gray-300 px-3 py-1 rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 flex items-center gap-1 text-sm">
             <ChevronLeft className="w-4 h-4" />
             Previous
           </button>
-          
-          <span className="px-3 py-1 text-sm">
-            Page {page} of {pagination.pages}
-          </span>
-          
-          <button
-            onClick={() => setPage(page + 1)}
-            disabled={page === pagination.pages}
-            className="border border-gray-300 px-3 py-1 rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 flex items-center gap-1 text-sm"
-          >
+          <span className="px-3 py-1 text-sm">Page {page} of {pagination.pages}</span>
+          <button onClick={() => setPage(page + 1)} disabled={page === pagination.pages} className="border border-gray-300 px-3 py-1 rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 flex items-center gap-1 text-sm">
             Next
             <ChevronRight className="w-4 h-4" />
           </button>
         </div>
       </div>
+
+      {isEditing && (
+        <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center p-4 z-50">
+          <div className="bg-white w-full max-w-3xl rounded-lg border-2 border-gray-300 shadow-lg">
+            <div className="p-4 border-b"><h3 className="text-lg font-medium text-gray-800">Edit Data</h3></div>
+            <div className="p-4 grid grid-cols-1 md:grid-cols-2 gap-4 max-h-[70vh] overflow-y-auto">
+              {columns.map(col => (
+                <div key={col.key} className="text-sm">
+                  <label className="block text-gray-700 mb-1">{col.label}</label>
+                  {col.key === 'tanggal' ? (
+                    <input type="date" value={editValues[col.key] || ''} onChange={e => setEditValues(v => ({ ...v, [col.key]: e.target.value }))} className="w-full border border-gray-300 rounded px-3 py-2" />
+                  ) : col.key === 'jam' ? (
+                    <input type="time" value={editValues[col.key] || ''} onChange={e => setEditValues(v => ({ ...v, [col.key]: e.target.value }))} className="w-full border border-gray-300 rounded px-3 py-2" />
+                  ) : col.key === 'dokumentasi' ? (
+                    <textarea value={editValues[col.key] || ''} onChange={e => setEditValues(v => ({ ...v, [col.key]: e.target.value }))} className="w-full border border-gray-300 rounded px-3 py-2 h-24" />
+                  ) : (
+                    <input type="text" value={editValues[col.key] ?? ''} onChange={e => setEditValues(v => ({ ...v, [col.key]: e.target.value }))} className="w-full border border-gray-300 rounded px-3 py-2" />
+                  )}
+                </div>
+              ))}
+            </div>
+            <div className="p-4 border-t flex justify-end gap-2">
+              <button onClick={() => { setIsEditing(false); setEditingRow(null); }} className="px-4 py-2 rounded border border-gray-300">Batal</button>
+              <button onClick={saveEdit} className="px-4 py-2 rounded text-white bg-gradient-to-r from-[#72BB34] to-[#40A3DC] hover:opacity-90">Simpan</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

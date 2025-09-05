@@ -28,7 +28,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
       <body className={poppins.className} suppressHydrationWarning>
         <AuthWrapper>
           <Navbar />
-          <main>{children}</main>
+          <main suppressHydrationWarning>{children}</main>
           <Footer />
         </AuthWrapper>
       </body>

@@ -1,6 +1,28 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 
+type SortOrder = 'asc' | 'desc';
+
+type BirdStrikeUpdate = Partial<{
+  tanggal: Date | null;
+  jam: Date | null;
+  waktu: string | null;
+  fase: string | null;
+  lokasi_perimeter: string | null;
+  kategori_kejadian: string | null;
+  remark: string | null;
+  airline: string | null;
+  runway_use: string | null;
+  komponen_pesawat: string | null;
+  dampak_pada_pesawat: string | null;
+  kondisi_kerusakan: string | null;
+  tindakan_perbaikan: string | null;
+  sumber_informasi: string | null;
+  deskripsi: string | null;
+  dokumentasi: string | null;
+  jenis_pesawat: string | null;
+}>;
+
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
@@ -10,10 +32,10 @@ export async function GET(request: NextRequest) {
     const showDeleted = searchParams.get('showDeleted') === 'true';
 
     const sortBy = (searchParams.get('sortBy') || 'createdAt');
-    const sortOrder = (searchParams.get('sortOrder') === 'asc' ? 'asc' : 'desc');
+    const sortOrder: SortOrder = (searchParams.get('sortOrder') === 'asc' ? 'asc' : 'desc');
 
     const allowedSort = new Set(['id','tanggal','jam','waktu','fase','lokasi_perimeter','kategori_kejadian','airline','runway_use','komponen_pesawat','dampak_pada_pesawat','kondisi_kerusakan','tindakan_perbaikan','sumber_informasi','remark','deskripsi','jenis_pesawat','createdAt']);
-    const orderBy: any = allowedSort.has(sortBy) ? { [sortBy]: sortOrder } : { createdAt: 'desc' };
+    const orderBy: Record<string, SortOrder> = allowedSort.has(sortBy) ? { [sortBy]: sortOrder } : { createdAt: 'desc' };
 
     const skip = (page - 1) * limit;
 
@@ -39,14 +61,14 @@ export async function GET(request: NextRequest) {
       prisma.birdStrike.count({ where })
     ]);
 
-    const serialize = (value: unknown): any => {
+    const serialize = (value: unknown): unknown => {
       if (value === null || value === undefined) return value;
       if (typeof value === 'bigint') return value.toString();
       if (value instanceof Date) return value.toISOString();
       if (Array.isArray(value)) return value.map(serialize);
       if (typeof value === 'object') {
-        const out: Record<string, any> = {};
-        for (const [k, v] of Object.entries(value as Record<string, any>)) {
+        const out: Record<string, unknown> = {};
+        for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
           out[k] = serialize(v);
         }
         return out;
@@ -151,36 +173,37 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ success: false, message: 'ID is required' }, { status: 400 });
     }
     const body = await request.json();
+    const b = body as Record<string, unknown>;
 
-    const data: any = {};
-    if ('tanggal' in body) data.tanggal = body.tanggal ? new Date(body.tanggal) : null;
-    if ('jam' in body) data.jam = body.jam ? new Date(`1970-01-01T${body.jam}:00.000Z`) : null;
-    if ('waktu' in body) data.waktu = body.waktu;
-    if ('fase' in body) data.fase = body.fase;
-    if ('lokasi_perimeter' in body) data.lokasi_perimeter = body.lokasi_perimeter;
-    if ('kategori_kejadian' in body) data.kategori_kejadian = body.kategori_kejadian;
-    if ('remark' in body) data.remark = body.remark;
-    if ('airline' in body) data.airline = body.airline;
-    if ('runway_use' in body) data.runway_use = body.runway_use;
-    if ('komponen_pesawat' in body) data.komponen_pesawat = body.komponen_pesawat;
-    if ('dampak_pada_pesawat' in body) data.dampak_pada_pesawat = body.dampak_pada_pesawat;
-    if ('kondisi_kerusakan' in body) data.kondisi_kerusakan = body.kondisi_kerusakan;
-    if ('tindakan_perbaikan' in body) data.tindakan_perbaikan = body.tindakan_perbaikan;
-    if ('sumber_informasi' in body) data.sumber_informasi = body.sumber_informasi;
-    if ('deskripsi' in body) data.deskripsi = body.deskripsi;
-    if ('dokumentasi' in body) data.dokumentasi = body.dokumentasi ?? null;
-    if ('jenis_pesawat' in body) data.jenis_pesawat = body.jenis_pesawat;
+    const data: BirdStrikeUpdate = {};
+    if ('tanggal' in b) data.tanggal = b.tanggal ? new Date(String(b.tanggal)) : null;
+    if ('jam' in b) data.jam = b.jam ? new Date(`1970-01-01T${String(b.jam)}:00.000Z`) : null;
+    if ('waktu' in b) data.waktu = b.waktu as string | null;
+    if ('fase' in b) data.fase = b.fase as string | null;
+    if ('lokasi_perimeter' in b) data.lokasi_perimeter = b.lokasi_perimeter as string | null;
+    if ('kategori_kejadian' in b) data.kategori_kejadian = b.kategori_kejadian as string | null;
+    if ('remark' in b) data.remark = b.remark as string | null;
+    if ('airline' in b) data.airline = b.airline as string | null;
+    if ('runway_use' in b) data.runway_use = b.runway_use as string | null;
+    if ('komponen_pesawat' in b) data.komponen_pesawat = b.komponen_pesawat as string | null;
+    if ('dampak_pada_pesawat' in b) data.dampak_pada_pesawat = b.dampak_pada_pesawat as string | null;
+    if ('kondisi_kerusakan' in b) data.kondisi_kerusakan = b.kondisi_kerusakan as string | null;
+    if ('tindakan_perbaikan' in b) data.tindakan_perbaikan = b.tindakan_perbaikan as string | null;
+    if ('sumber_informasi' in b) data.sumber_informasi = b.sumber_informasi as string | null;
+    if ('deskripsi' in b) data.deskripsi = b.deskripsi as string | null;
+    if ('dokumentasi' in b) data.dokumentasi = (b as Record<string, unknown>).dokumentasi as string | null ?? null;
+    if ('jenis_pesawat' in b) data.jenis_pesawat = b.jenis_pesawat as string | null;
 
     const updated = await prisma.birdStrike.update({ where: { id: BigInt(id) }, data });
 
-    const serialize = (value: unknown): any => {
+    const serialize = (value: unknown): unknown => {
       if (value === null || value === undefined) return value;
       if (typeof value === 'bigint') return value.toString();
       if (value instanceof Date) return value.toISOString();
       if (Array.isArray(value)) return value.map(serialize);
       if (typeof value === 'object') {
-        const out: Record<string, any> = {};
-        for (const [k, v] of Object.entries(value as Record<string, any>)) out[k] = serialize(v);
+        const out: Record<string, unknown> = {};
+        for (const [k, v] of Object.entries(value as Record<string, unknown>)) out[k] = serialize(v);
         return out;
       }
       return value;

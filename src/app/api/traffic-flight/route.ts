@@ -1,6 +1,29 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 
+interface TrafficFlightCreate {
+  no: string | null;
+  act_type: string | null;
+  reg_no: string | null;
+  opr: string | null;
+  flight_number_origin: string | null;
+  flight_number_dest: string | null;
+  ata: string | null;
+  block_on: string;
+  block_off: string;
+  atd: string | null;
+  ground_time: string | null;
+  org: string | null;
+  des: string | null;
+  ps: string | null;
+  runway: string | null;
+  avio_a: string | null;
+  avio_d: string | null;
+  f_stat: string | null;
+  bulan: string | null;
+  tahun: string | null;
+}
+
 export async function POST(request: NextRequest) {
   try {
     const form = await request.formData();
@@ -34,7 +57,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const data: any[] = [];
+    const data: TrafficFlightCreate[] = [];
     for (let i = 1; i < lines.length; i++) {
       const raw = lines[i].split(',').map(v => v.trim().replace(/"/g, ''));
       if (raw.length < headers.length) continue;

@@ -5,8 +5,22 @@ interface DataTableProps {
   dataType: 'bird-strike' | 'bird-species' | 'traffic-flight';
 }
 
+type RowPrimitive = string | number | boolean | null | undefined;
+interface BaseRow {
+  id: string | number;
+  deletedAt?: string | null;
+  [key: string]: RowPrimitive;
+}
+
+type EditValues = Record<string, string>;
+
+enum SortDirection {
+  Asc = 'asc',
+  Desc = 'desc',
+}
+
 export default function DataTable({ dataType }: DataTableProps) {
-  const [data, setData] = useState<Record<string, any>[]>([]);
+  const [data, setData] = useState<BaseRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(10);
@@ -21,11 +35,11 @@ export default function DataTable({ dataType }: DataTableProps) {
   const [message, setMessage] = useState('');
 
   const [sortBy, setSortBy] = useState<string>('');
-  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>(SortDirection.Desc);
 
   const [isEditing, setIsEditing] = useState(false);
-  const [editingRow, setEditingRow] = useState<Record<string, any> | null>(null);
-  const [editValues, setEditValues] = useState<Record<string, any>>({});
+  const [editingRow, setEditingRow] = useState<BaseRow | null>(null);
+  const [editValues, setEditValues] = useState<EditValues>({});
 
   const fetchData = useCallback(async (signal?: AbortSignal) => {
     setLoading(true);
@@ -75,7 +89,7 @@ export default function DataTable({ dataType }: DataTableProps) {
       try { if (!controller.signal.aborted) controller.abort(); } catch {}
       clearTimeout(timeoutId);
     };
-  }, [fetchData]);
+  }, [fetchData, search]);
 
   const handleDelete = async (id: string) => {
     try {
@@ -206,7 +220,7 @@ export default function DataTable({ dataType }: DataTableProps) {
           { key: 'tahun', label: 'Tahun' }
         ];
       default:
-        return [];
+        return [] as const;
     }
   };
 
@@ -234,10 +248,10 @@ export default function DataTable({ dataType }: DataTableProps) {
 
   const toggleSort = (key: string) => {
     if (sortBy === key) {
-      setSortOrder(prev => (prev === 'asc' ? 'desc' : 'asc'));
+      setSortOrder(prev => (prev === SortDirection.Asc ? SortDirection.Desc : SortDirection.Asc));
     } else {
       setSortBy(key);
-      setSortOrder('asc');
+      setSortOrder(SortDirection.Asc);
     }
     setPage(1);
   };
@@ -260,13 +274,13 @@ export default function DataTable({ dataType }: DataTableProps) {
     return `${hh}:${mi}`;
   };
 
-  const openEdit = (row: Record<string, any>) => {
+  const openEdit = (row: BaseRow) => {
     setEditingRow(row);
-    const initial: Record<string, any> = {};
+    const initial: EditValues = {};
     for (const c of columns) {
-      if (c.key === 'tanggal') initial[c.key] = toDateInput(row[c.key]);
-      else if (c.key === 'jam') initial[c.key] = toTimeInput(row[c.key]);
-      else initial[c.key] = row[c.key] ?? '';
+      if (c.key === 'tanggal') initial[c.key] = toDateInput(row[c.key] as string);
+      else if (c.key === 'jam') initial[c.key] = toTimeInput(row[c.key] as string);
+      else initial[c.key] = (row[c.key] ?? '') as string;
     }
     setEditValues(initial);
     setIsEditing(true);
@@ -275,7 +289,7 @@ export default function DataTable({ dataType }: DataTableProps) {
   const saveEdit = async () => {
     if (!editingRow) return;
     const id = String(editingRow.id);
-    const body: Record<string, any> = {};
+    const body: Record<string, string> = {};
     for (const c of columns) {
       const k = c.key;
       if (dataType === 'bird-species' && k === 'jumlah_burung') body[k] = editValues[k] ? String(editValues[k]) : '';

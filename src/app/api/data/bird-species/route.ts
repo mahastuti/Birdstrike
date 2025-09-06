@@ -1,6 +1,24 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 
+type SortOrder = 'asc' | 'desc';
+
+type BurungBioUpdate = Partial<{
+  longitude: string | null;
+  latitude: string | null;
+  lokasi: string | null;
+  titik: string | null;
+  tanggal: Date | null;
+  jam: Date | null;
+  waktu: string | null;
+  cuaca: string | null;
+  jenis_burung: string | null;
+  nama_ilmiah: string | null;
+  jumlah_burung: number | null;
+  keterangan: string | null;
+  dokumentasi: string | null;
+}>;
+
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
@@ -10,10 +28,10 @@ export async function GET(request: NextRequest) {
     const showDeleted = searchParams.get('showDeleted') === 'true';
 
     const sortBy = (searchParams.get('sortBy') || 'createdAt');
-    const sortOrder = (searchParams.get('sortOrder') === 'asc' ? 'asc' : 'desc');
+    const sortOrder: SortOrder = (searchParams.get('sortOrder') === 'asc' ? 'asc' : 'desc');
 
     const allowedSort = new Set(['id','longitude','latitude','lokasi','titik','tanggal','jam','waktu','cuaca','jenis_burung','nama_ilmiah','jumlah_burung','createdAt']);
-    const orderBy: any = allowedSort.has(sortBy) ? { [sortBy]: sortOrder } : { createdAt: 'desc' };
+    const orderBy: Record<string, SortOrder> = allowedSort.has(sortBy) ? { [sortBy]: sortOrder } : { createdAt: 'desc' };
 
     const skip = (page - 1) * limit;
 
@@ -39,14 +57,14 @@ export async function GET(request: NextRequest) {
       prisma.burung_bio.count({ where })
     ]);
 
-    const serialize = (value: unknown): any => {
+    const serialize = (value: unknown): unknown => {
       if (value === null || value === undefined) return value;
       if (typeof value === 'bigint') return value.toString();
       if (value instanceof Date) return value.toISOString();
       if (Array.isArray(value)) return value.map(serialize);
       if (typeof value === 'object') {
-        const out: Record<string, any> = {};
-        for (const [k, v] of Object.entries(value as Record<string, any>)) {
+        const out: Record<string, unknown> = {};
+        for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
           out[k] = serialize(v);
         }
         return out;
@@ -151,6 +169,7 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ success: false, message: 'ID is required' }, { status: 400 });
     }
     const body = await request.json();
+    const b = body as Record<string, unknown>;
 
     const mapWaktu = (time: string | null | undefined): string | null => {
       if (!time) return null;
@@ -162,31 +181,34 @@ export async function PUT(request: NextRequest) {
       return 'Malam';
     };
 
-    const data: any = {};
-    if ('longitude' in body) data.longitude = body.longitude;
-    if ('latitude' in body) data.latitude = body.latitude;
-    if ('lokasi' in body) data.lokasi = body.lokasi;
-    if ('titik' in body) data.titik = body.titik;
-    if ('tanggal' in body) data.tanggal = body.tanggal ? new Date(body.tanggal) : null;
-    if ('jam' in body) data.jam = body.jam ? new Date(`1970-01-01T${body.jam}:00.000Z`) : null;
-    if ('waktu' in body || 'jam' in body) data.waktu = body.waktu ?? mapWaktu(body.jam);
-    if ('cuaca' in body) data.cuaca = body.cuaca;
-    if ('jenis_burung' in body) data.jenis_burung = body.jenis_burung;
-    if ('nama_ilmiah' in body) data.nama_ilmiah = body.nama_ilmiah;
-    if ('jumlah_burung' in body) data.jumlah_burung = body.jumlah_burung ? parseInt(body.jumlah_burung) : null;
-    if ('keterangan' in body) data.keterangan = body.keterangan;
-    if ('dokumentasi' in body) data.dokumentasi = body.dokumentasi ?? null;
+    const data: BurungBioUpdate = {};
+    if ('longitude' in b) data.longitude = b.longitude as string | null;
+    if ('latitude' in b) data.latitude = b.latitude as string | null;
+    if ('lokasi' in b) data.lokasi = b.lokasi as string | null;
+    if ('titik' in b) data.titik = b.titik as string | null;
+    if ('tanggal' in b) data.tanggal = b.tanggal ? new Date(String(b.tanggal)) : null;
+    if ('jam' in b) data.jam = b.jam ? new Date(`1970-01-01T${String(b.jam)}:00.000Z`) : null;
+    if ('waktu' in b || 'jam' in b) data.waktu = (b as Record<string, unknown>).waktu as string | null ?? mapWaktu(b.jam as string | null | undefined);
+    if ('cuaca' in b) data.cuaca = b.cuaca as string | null;
+    if ('jenis_burung' in b) data.jenis_burung = b.jenis_burung as string | null;
+    if ('nama_ilmiah' in b) data.nama_ilmiah = b.nama_ilmiah as string | null;
+    if ('jumlah_burung' in b) {
+      const v = (b as Record<string, unknown>).jumlah_burung;
+      data.jumlah_burung = v !== undefined && v !== null ? parseInt(String(v), 10) : null;
+    }
+    if ('keterangan' in b) data.keterangan = b.keterangan as string | null;
+    if ('dokumentasi' in b) data.dokumentasi = (b as Record<string, unknown>).dokumentasi as string | null ?? null;
 
     const updated = await prisma.burung_bio.update({ where: { id: BigInt(id) }, data });
 
-    const serialize = (value: unknown): any => {
+    const serialize = (value: unknown): unknown => {
       if (value === null || value === undefined) return value;
       if (typeof value === 'bigint') return value.toString();
       if (value instanceof Date) return value.toISOString();
       if (Array.isArray(value)) return value.map(serialize);
       if (typeof value === 'object') {
-        const out: Record<string, any> = {};
-        for (const [k, v] of Object.entries(value as Record<string, any>)) out[k] = serialize(v);
+        const out: Record<string, unknown> = {};
+        for (const [k, v] of Object.entries(value as Record<string, unknown>)) out[k] = serialize(v);
         return out;
       }
       return value;

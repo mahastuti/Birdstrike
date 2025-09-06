@@ -71,7 +71,8 @@ export default function BirdSpeciesForm({ onSubmit, isSubmitting = false }: Bird
       } else if (name === 'nama_ilmiah') {
         next.nama_ilmiah = toScientificCase(value);
       } else if (name in prev) {
-        (next as any)[name] = value;
+        const key = name as keyof BirdSpeciesFormData;
+        next[key] = value as BirdSpeciesFormData[typeof key];
       }
       return next;
     });

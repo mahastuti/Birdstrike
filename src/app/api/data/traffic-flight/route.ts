@@ -1,19 +1,43 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 
+type SortOrder = 'asc' | 'desc';
+
+type TrafficFlightUpdate = Partial<{
+  no: string | null;
+  act_type: string | null;
+  reg_no: string | null;
+  opr: string | null;
+  flight_number_origin: string | null;
+  flight_number_dest: string | null;
+  ata: string | null;
+  block_on: string;
+  block_off: string;
+  atd: string | null;
+  ground_time: string | null;
+  org: string | null;
+  des: string | null;
+  ps: string | null;
+  runway: string | null;
+  avio_a: string | null;
+  avio_d: string | null;
+  f_stat: string | null;
+  bulan: string | null;
+  tahun: string | null;
+}>;
+
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const page = parseInt(searchParams.get('page') || '1');
     const limit = parseInt(searchParams.get('limit') || '10');
     const search = searchParams.get('search') || '';
-    const showDeleted = searchParams.get('showDeleted') === 'true';
 
     const sortBy = (searchParams.get('sortBy') || 'id');
-    const sortOrder = (searchParams.get('sortOrder') === 'asc' ? 'asc' : 'desc');
+    const sortOrder: SortOrder = (searchParams.get('sortOrder') === 'asc' ? 'asc' : 'desc');
 
     const allowedSort = new Set(['id','no','act_type','reg_no','opr','flight_number_origin','flight_number_dest','ata','block_on','block_off','atd','ground_time','org','des','ps','runway','avio_a','avio_d','f_stat','bulan','tahun']);
-    const orderBy: any = allowedSort.has(sortBy) ? { [sortBy]: sortOrder } : { id: 'desc' };
+    const orderBy: Record<string, SortOrder> = allowedSort.has(sortBy) ? { [sortBy]: sortOrder } : { id: 'desc' };
 
     const skip = (page - 1) * limit;
 
@@ -46,14 +70,14 @@ export async function GET(request: NextRequest) {
       prisma.trafficFlight.count({ where })
     ]);
 
-    const serialize = (value: unknown): any => {
+    const serialize = (value: unknown): unknown => {
       if (value === null || value === undefined) return value;
       if (typeof value === 'bigint') return value.toString();
       if (value instanceof Date) return value.toISOString();
       if (Array.isArray(value)) return value.map(serialize);
       if (typeof value === 'object') {
-        const out: Record<string, any> = {};
-        for (const [k, v] of Object.entries(value as Record<string, any>)) {
+        const out: Record<string, unknown> = {};
+        for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
           out[k] = serialize(v);
         }
         return out;
@@ -126,23 +150,32 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ success: false, message: 'ID is required' }, { status: 400 });
     }
     const body = await request.json();
+    const b = body as Record<string, unknown>;
 
-    const data: any = {};
     const fields = ['no','act_type','reg_no','opr','flight_number_origin','flight_number_dest','ata','block_on','block_off','atd','ground_time','org','des','ps','runway','avio_a','avio_d','f_stat','bulan','tahun'] as const;
+    const data: TrafficFlightUpdate = {};
     for (const f of fields) {
-      if (f in body) (data as any)[f] = (body as any)[f];
+      if (!(f in b)) continue;
+      const v = (b as Record<string, unknown>)[f];
+      if (f === 'block_on' || f === 'block_off') {
+        if (typeof v === 'string') data[f] = v;
+        else if (v != null) data[f] = String(v);
+        // if null/undefined, skip to avoid assigning null to non-nullable fields
+      } else {
+        data[f] = v == null ? null : String(v);
+      }
     }
 
     const updated = await prisma.trafficFlight.update({ where: { id: BigInt(id) }, data });
 
-    const serialize = (value: unknown): any => {
+    const serialize = (value: unknown): unknown => {
       if (value === null || value === undefined) return value;
       if (typeof value === 'bigint') return value.toString();
       if (value instanceof Date) return value.toISOString();
       if (Array.isArray(value)) return value.map(serialize);
       if (typeof value === 'object') {
-        const out: Record<string, any> = {};
-        for (const [k, v] of Object.entries(value as Record<string, any>)) out[k] = serialize(v);
+        const out: Record<string, unknown> = {};
+        for (const [k, v] of Object.entries(value as Record<string, unknown>)) out[k] = serialize(v);
         return out;
       }
       return value;

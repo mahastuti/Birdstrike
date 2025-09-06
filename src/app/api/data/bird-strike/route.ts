@@ -39,16 +39,34 @@ export async function GET(request: NextRequest) {
 
     const skip = (page - 1) * limit;
 
+    const orFilters: Record<string, unknown>[] = [];
+    if (search) {
+      const s = search;
+      const like = (key: string) => ({ [key]: { contains: s, mode: 'insensitive' as const } });
+      for (const k of [
+        'waktu','fase','lokasi_perimeter','kategori_kejadian','remark','airline','runway_use','komponen_pesawat','dampak_pada_pesawat','kondisi_kerusakan','tindakan_perbaikan','sumber_informasi','deskripsi','dokumentasi','jenis_pesawat'
+      ]) {
+        orFilters.push(like(k));
+      }
+      // bigint id
+      if (/^\d+$/.test(s)) {
+        try { orFilters.push({ id: BigInt(s) }); } catch {}
+      }
+      // date YYYY-MM-DD
+      if (/^\d{4}-\d{2}-\d{2}$/.test(s)) {
+        const d = new Date(s);
+        if (!Number.isNaN(d.getTime())) orFilters.push({ tanggal: d });
+      }
+      // time HH:MM
+      if (/^\d{2}:\d{2}$/.test(s)) {
+        const t = new Date(`1970-01-01T${s}:00.000Z`);
+        if (!Number.isNaN(t.getTime())) orFilters.push({ jam: t });
+      }
+    }
+
     const where = {
       deletedAt: showDeleted ? { not: null } : null,
-      ...(search && {
-        OR: [
-          { airline: { contains: search, mode: 'insensitive' as const } },
-          { lokasi_perimeter: { contains: search, mode: 'insensitive' as const } },
-          { kategori_kejadian: { contains: search, mode: 'insensitive' as const } },
-          { komponen_pesawat: { contains: search, mode: 'insensitive' as const } },
-        ]
-      })
+      ...(search && { OR: orFilters })
     };
 
     const [data, total] = await Promise.all([

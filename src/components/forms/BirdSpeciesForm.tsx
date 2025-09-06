@@ -78,10 +78,23 @@ export default function BirdSpeciesForm({ onSubmit, isSubmitting = false }: Bird
     });
   };
 
+
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) {
       setFormData(prev => ({ ...prev, dokumentasi: '' }));
+      return;
+    }
+    const allowed = ['image/png','image/jpeg','application/pdf'];
+    if (!allowed.includes(file.type)) {
+      alert('Format file harus PNG, JPG/JPEG, atau PDF');
+      e.currentTarget.value = '';
+      return;
+    }
+    const maxBytes = 5 * 1024 * 1024; // 5MB
+    if (file.size > maxBytes) {
+      alert('Ukuran file maksimal 5MB');
+      e.currentTarget.value = '';
       return;
     }
     const reader = new FileReader();
@@ -117,9 +130,7 @@ export default function BirdSpeciesForm({ onSubmit, isSubmitting = false }: Bird
   return (
     <form onSubmit={handleSubmit} className="max-w-4xl mx-auto">
       <div className="bg-white rounded-lg border-2 border-gray-300 shadow-sm">
-        <div className="p-6 border-b border-gray-200">
-          <h2 className="text-2xl font-medium text-gray-800 text-center">Input Data</h2>
-        </div>
+
 
         <div className="p-6 space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -300,7 +311,7 @@ export default function BirdSpeciesForm({ onSubmit, isSubmitting = false }: Bird
             <label className="block text-sm font-medium text-gray-700 mb-1">Dokumentasi (png, jpg, jpeg, pdf)</label>
             <input
               type="file"
-              accept=".png,.jpg,.jpeg,.pdf"
+              accept=".png,.jpg,.jpeg,.pdf,application/pdf"
               onChange={handleFileChange}
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent file:bg-gray-700 file:text-white file:hover:bg-gray-800 file:border-0 file:rounded-md file:px-4 file:py-2 file:mr-3 bg-gray-100"
             />
@@ -311,8 +322,8 @@ export default function BirdSpeciesForm({ onSubmit, isSubmitting = false }: Bird
               type="submit"
               disabled={isSubmitting}
               className={`px-8 py-3 rounded-lg font-medium transition-colors ${isSubmitting
-                  ? 'bg-gray-400 text-white cursor-not-allowed'
-                  : 'bg-gradient-to-r from-[#72BB34] to-[#40A3DC] text-white hover:opacity-90'
+                ? 'bg-gray-400 text-white cursor-not-allowed'
+                : 'bg-gradient-to-r from-[#72BB34] to-[#40A3DC] text-white hover:opacity-90'
                 }`}
             >
               {isSubmitting ? 'Menyimpan...' : 'Submit Data'}

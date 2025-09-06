@@ -41,6 +41,9 @@ export default function DataTable({ dataType }: DataTableProps) {
   const [editingRow, setEditingRow] = useState<BaseRow | null>(null);
   const [editValues, setEditValues] = useState<EditValues>({});
 
+  const [previewSrc, setPreviewSrc] = useState<string | null>(null);
+  const [previewType, setPreviewType] = useState<'image' | 'pdf' | 'file' | null>(null);
+
   const fetchData = useCallback(async (signal?: AbortSignal) => {
     setLoading(true);
     try {
@@ -274,6 +277,12 @@ export default function DataTable({ dataType }: DataTableProps) {
     return `${hh}:${mi}`;
   };
 
+  const openPreview = (src: string, type: 'image' | 'pdf' | 'file') => {
+    setPreviewSrc(src);
+    setPreviewType(type);
+  };
+  const closePreview = () => { setPreviewSrc(null); setPreviewType(null); };
+
   const openEdit = (row: BaseRow) => {
     setEditingRow(row);
     const initial: EditValues = {};
@@ -394,9 +403,32 @@ export default function DataTable({ dataType }: DataTableProps) {
             ) : (
               data.map((row, index) => (
                 <tr key={String(row.id)} className={`${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'} ${row.deletedAt ? 'opacity-50' : ''}`}>
-                  {columns.map((column) => (
-                    <td key={column.key} className="border border-gray-300 px-4 py-2 text-sm">{formatValue(row[column.key], column.key)}</td>
-                  ))}
+                  {columns.map((column) => {
+                    const val = row[column.key];
+                    if (column.key === 'dokumentasi' && typeof val === 'string' && val) {
+                      const lower = val.toLowerCase();
+                      const isDataImg = lower.startsWith('data:image/');
+                      const isUrlImg = /\.(png|jpe?g|gif|webp|bmp|svg)(\?.*)?$/.test(lower) || (lower.startsWith('http') && !/\.pdf(\?.*)?$/.test(lower));
+                      const isImage = isDataImg || isUrlImg;
+                      const isPdf = lower.startsWith('data:application/pdf') || /\.pdf(\?.*)?$/.test(lower);
+                      return (
+                        <td key={column.key} className="border border-gray-300 px-4 py-2 text-sm">
+                          {isImage ? (
+                            <button onClick={() => openPreview(val, 'image')} className="inline-block border border-gray-300 rounded hover:opacity-90" title="Lihat & Download">
+                              <img src={val} alt="Dokumentasi" className="h-16 w-16 object-cover rounded" />
+                            </button>
+                          ) : isPdf ? (
+                            <button onClick={() => openPreview(val, 'pdf')} className="text-blue-600 hover:underline">Lihat PDF</button>
+                          ) : (
+                            <button onClick={() => openPreview(val, 'file')} className="text-blue-600 hover:underline">Lihat File</button>
+                          )}
+                        </td>
+                      );
+                    }
+                    return (
+                      <td key={column.key} className="border border-gray-300 px-4 py-2 text-sm">{formatValue(val, column.key)}</td>
+                    );
+                  })}
                   <td className="border border-gray-300 px-4 py-2 text-center">
                     <div className="flex justify-center gap-2">
                       <button onClick={() => openEdit(row)} className="bg-yellow-500 hover:bg-yellow-600 text-white p-1 rounded text-xs flex items-center gap-1" title="Edit">
@@ -441,6 +473,29 @@ export default function DataTable({ dataType }: DataTableProps) {
           </button>
         </div>
       </div>
+
+      {previewSrc && (
+        <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center p-4 z-50">
+          <div className="bg-white w-full max-w-4xl rounded-lg border-2 border-gray-300 shadow-lg">
+            <div className="p-4 border-b flex justify-between items-center">
+              <h3 className="text-lg font-medium text-gray-800">Dokumentasi</h3>
+              <button onClick={closePreview} className="px-3 py-1 rounded border border-gray-300">Tutup</button>
+            </div>
+            <div className="p-4 max-h-[75vh] overflow-auto">
+              {previewType === 'image' ? (
+                <img src={previewSrc} alt="Dokumentasi" className="max-h-[70vh] w-auto mx-auto rounded" />
+              ) : previewType === 'pdf' ? (
+                <iframe src={previewSrc} className="w-full h-[70vh] border" />
+              ) : (
+                <a href={previewSrc} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">Buka File</a>
+              )}
+            </div>
+            <div className="p-4 border-t flex justify-end gap-2">
+              <a href={previewSrc} download className="px-4 py-2 rounded text-white bg-gradient-to-r from-[#72BB34] to-[#40A3DC] hover:opacity-90">Download</a>
+            </div>
+          </div>
+        </div>
+      )}
 
       {isEditing && (
         <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center p-4 z-50">

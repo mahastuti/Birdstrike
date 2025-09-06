@@ -64,6 +64,18 @@ export default function BirdStrikeForm({ onSubmit, isSubmitting = false }: BirdS
       setFormData(prev => ({ ...prev, dokumentasi: "" }));
       return;
     }
+    const allowed = ['image/png','image/jpeg','application/pdf'];
+    if (!allowed.includes(file.type)) {
+      alert('Format file harus PNG, JPG/JPEG, atau PDF');
+      e.currentTarget.value = '';
+      return;
+    }
+    const maxBytes = 5 * 1024 * 1024;
+    if (file.size > maxBytes) {
+      alert('Ukuran file maksimal 5MB');
+      e.currentTarget.value = '';
+      return;
+    }
     const reader = new FileReader();
     reader.onload = () => {
       const result = typeof reader.result === 'string' ? reader.result : '';

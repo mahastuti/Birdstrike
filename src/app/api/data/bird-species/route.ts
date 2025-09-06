@@ -35,16 +35,38 @@ export async function GET(request: NextRequest) {
 
     const skip = (page - 1) * limit;
 
+    const orFilters: Record<string, unknown>[] = [];
+    if (search) {
+      const s = search;
+      const like = (key: string) => ({ [key]: { contains: s, mode: 'insensitive' as const } });
+      // string fields
+      for (const k of ['longitude','latitude','lokasi','titik','waktu','cuaca','jenis_burung','nama_ilmiah','keterangan','dokumentasi']) {
+        orFilters.push(like(k));
+      }
+      // numeric equals
+      const asInt = Number.parseInt(s, 10);
+      if (!Number.isNaN(asInt)) {
+        orFilters.push({ jumlah_burung: asInt });
+      }
+      // bigint id
+      if (/^\d+$/.test(s)) {
+        try { orFilters.push({ id: BigInt(s) }); } catch {}
+      }
+      // date YYYY-MM-DD
+      if (/^\d{4}-\d{2}-\d{2}$/.test(s)) {
+        const d = new Date(s);
+        if (!Number.isNaN(d.getTime())) orFilters.push({ tanggal: d });
+      }
+      // time HH:MM
+      if (/^\d{2}:\d{2}$/.test(s)) {
+        const t = new Date(`1970-01-01T${s}:00.000Z`);
+        if (!Number.isNaN(t.getTime())) orFilters.push({ jam: t });
+      }
+    }
+
     const where = {
       deletedAt: showDeleted ? { not: null } : null,
-      ...(search && {
-        OR: [
-          { jenis_burung: { contains: search, mode: 'insensitive' as const } },
-          { nama_ilmiah: { contains: search, mode: 'insensitive' as const } },
-          { lokasi: { contains: search, mode: 'insensitive' as const } },
-          { titik: { contains: search, mode: 'insensitive' as const } },
-        ]
-      })
+      ...(search && { OR: orFilters })
     };
 
     const [data, total] = await Promise.all([

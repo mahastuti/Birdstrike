@@ -1,8 +1,61 @@
 'use client';
 
 import { useState } from 'react';
-import { BarChart3, LayoutDashboard, Map, Image as ImageIcon, FileBarChart } from 'lucide-react';
+import { BarChart3, LayoutDashboard, Map, FileBarChart } from 'lucide-react';
+import { assets } from "@/assets/assets";
 import DashboardInputData from '@/components/dashboard/dashboard-input-data';
+
+
+function MapControls() {
+  const [heatmap, setHeatmap] = useState(false);
+  const [bubble, setBubble] = useState(false);
+  const [tren, setTren] = useState(false);
+  const [garis, setGaris] = useState(true);
+  const [area, setArea] = useState(true);
+  const [points, setPoints] = useState(false);
+
+  const getMapSrc = () => {
+    if (heatmap && bubble) return assets.map1;
+    const g = garis, a = area, p = points;
+    if (g && a && p) return assets.map6;
+    if (g && a) return assets.map5;
+    if (p) return assets.map2;
+    if (g) return assets.map3;
+    if (a) return assets.map4;
+    return null;
+  };
+  const src = getMapSrc();
+
+  const pill = (label: string, active: boolean, onClick: () => void) => (
+    <button onClick={onClick} className={`px-4 py-2 rounded-lg border ${active ? 'bg-[#83C8EF] text-white' : 'bg-white text-gray-700'} transition-colors`}>
+      {label}
+    </button>
+  );
+
+  return (
+    <div className="p-8 space-y-4">
+      <div className="flex gap-3">
+        {pill('heatmap', heatmap, () => setHeatmap(v => !v))}
+        {pill('bubble', bubble, () => setBubble(v => !v))}
+        {pill('tren', tren, () => setTren(v => !v))}
+      </div>
+
+      <div className="space-y-2">
+        <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={garis} onChange={e => setGaris(e.target.checked)} className="rounded" /> garis perimeter</label>
+        <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={area} onChange={e => setArea(e.target.checked)} className="rounded" /> area dalam perimeter</label>
+        <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={points} onChange={e => setPoints(e.target.checked)} className="rounded" /> 8 titik potensial</label>
+      </div>
+
+      <div className="h-96 bg-gray-100 border-2 border-gray-300 rounded-lg flex items-center justify-center overflow-hidden">
+        {src ? (
+          <img src={src} alt="Map" className="h-full w-full object-contain" />
+        ) : (
+          <p className="text-gray-700 text-lg">Map content will be displayed here</p>
+        )}
+      </div>
+    </div>
+  );
+}
 
 export default function Dashboard() {
   const [selectedSidebarOption, setSelectedSidebarOption] = useState('dashboard');
@@ -77,16 +130,6 @@ export default function Dashboard() {
           >
             <Map className="w-5 h-5" />
             Map
-          </button>
-          <button
-            onClick={() => setSelectedSidebarOption('gambar')}
-            className={`w-full text-left p-3 rounded-lg border-2 transition-colors flex items-center gap-3 ${selectedSidebarOption === 'gambar'
-                ? "bg-gradient-to-r from-[#72BB34] to-[#40A3DC] border border-gray-300 text-white hover:opacity-80"
-                : 'bg-[#83C8EF] font-medium text-white'
-              }`}
-          >
-            <ImageIcon className="w-5 h-5" />
-            Gambar
           </button>
           <button
             onClick={() => setSelectedSidebarOption('analisis')}
@@ -286,40 +329,11 @@ export default function Dashboard() {
               <div className="p-3 bg-[#40A3DC] border-b border-gray-300 rounded-t-lg">
                 <h2 className="text-2xl font-medium text-center text-white">MAP</h2>
               </div>
-              <div className="p-8">
-                <div className="h-96 bg-gray-100 border-2 border-gray-300 rounded-lg flex items-center justify-center">
-                  <p className="text-gray-700 text-lg">Map content will be displayed here</p>
-                </div>
-              </div>
+              <MapControls />
             </div>
           </div>
         )}
 
-        {selectedSidebarOption === 'gambar' && (
-          <div className="space-y-6">
-            <div className="bg-white border-2 border-gray-300 rounded-lg">
-              <div className="p-3 bg-[#40A3DC] border-b border-gray-300 rounded-t-lg">
-                <h2 className="text-2xl font-medium text-center text-white">GAMBAR</h2>
-              </div>
-              <div className="p-8">
-                <div className="h-[520px] bg-rose-200 border-2 border-rose-300 rounded-lg p-6 overflow-y-auto">
-                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-6">
-                    {[
-                      'png','pdf','pdf','pdf',
-                      'png','pdf','pdf','pdf',
-                      'png','pdf','pdf','pdf',
-                      'png','pdf','pdf','pdf'
-                    ].map((type, idx) => (
-                      <div key={idx} className="bg-white border border-gray-300 rounded-lg h-24 flex items-center justify-center shadow-sm">
-                        <span className="text-gray-600">{type}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
 
         {selectedSidebarOption === 'analisis' && (
           <div className="space-y-6">

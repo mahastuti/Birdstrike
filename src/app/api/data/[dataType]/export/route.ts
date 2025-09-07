@@ -29,6 +29,8 @@ export async function GET(request: NextRequest, context: { params: Promise<{ dat
     const showDeleted = searchParams.get('showDeleted') === 'true';
     const sortByParam = searchParams.get('sortBy') || '';
     const sortOrderParam = searchParams.get('sortOrder') === 'asc' ? 'asc' : 'desc';
+    const pageParam = Number.parseInt(searchParams.get('page') || '', 10);
+    const limitParam = Number.parseInt(searchParams.get('limit') || '', 10);
 
     const ts = new Date();
     const pad = (n: number) => String(n).padStart(2, '0');
@@ -63,7 +65,11 @@ export async function GET(request: NextRequest, context: { params: Promise<{ dat
         ...(search && { OR: orFilters })
       };
 
-      const rows = await prisma.birdStrike.findMany({ where, orderBy });
+      let rows = await prisma.birdStrike.findMany({ where, orderBy });
+      if (Number.isFinite(pageParam) && Number.isFinite(limitParam) && pageParam > 0 && limitParam > 0) {
+        const start = (pageParam - 1) * limitParam;
+        rows = rows.slice(start, start + limitParam);
+      }
 
       const headers = [
         'tanggal','jam','waktu','fase','lokasi_perimeter','kategori_kejadian','airline','runway_use','komponen_pesawat','dampak_pada_pesawat','kondisi_kerusakan','tindakan_perbaikan','sumber_informasi','remark','deskripsi','dokumentasi','jenis_pesawat'
@@ -108,7 +114,11 @@ export async function GET(request: NextRequest, context: { params: Promise<{ dat
         ...(search && { OR: orFilters })
       };
 
-      const rows = await prisma.burung_bio.findMany({ where, orderBy });
+      let rows = await prisma.burung_bio.findMany({ where, orderBy });
+      if (Number.isFinite(pageParam) && Number.isFinite(limitParam) && pageParam > 0 && limitParam > 0) {
+        const start = (pageParam - 1) * limitParam;
+        rows = rows.slice(start, start + limitParam);
+      }
 
       const headers = [
         'longitude','latitude','lokasi','titik','tanggal','jam','waktu','cuaca','jenis_burung','nama_ilmiah','jumlah_burung','keterangan','dokumentasi'
@@ -145,7 +155,7 @@ export async function GET(request: NextRequest, context: { params: Promise<{ dat
         ...(search && { OR: orFilters })
       };
 
-      const rows = await prisma.trafficFlight.findMany({ where, ...(sortBy === 'no' ? {} : { orderBy }) });
+      let rows = await prisma.trafficFlight.findMany({ where, ...(sortBy === 'no' ? {} : { orderBy }) });
       if (sortBy === 'no') {
         const num = (v: unknown): number => {
           if (v == null) return Number.POSITIVE_INFINITY;
@@ -163,6 +173,10 @@ export async function GET(request: NextRequest, context: { params: Promise<{ dat
           const sb = (b.no ?? '').toString();
           return sortOrderParam === 'asc' ? sa.localeCompare(sb) : sb.localeCompare(sa);
         });
+      }
+      if (Number.isFinite(pageParam) && Number.isFinite(limitParam) && pageParam > 0 && limitParam > 0) {
+        const start = (pageParam - 1) * limitParam;
+        rows = rows.slice(start, start + limitParam);
       }
 
       const headers = [

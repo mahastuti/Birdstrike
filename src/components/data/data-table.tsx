@@ -35,8 +35,8 @@ export default function DataTable({ dataType, exportScope = 'all' }: DataTablePr
   });
   const [message, setMessage] = useState('');
 
-  const [sortBy, setSortBy] = useState<string>('');
-  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>(SortDirection.Desc);
+  const [sortBy, setSortBy] = useState<string>(dataType === 'traffic-flight' ? 'no' : '');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>(dataType === 'traffic-flight' ? SortDirection.Asc : SortDirection.Desc);
 
   const [isEditing, setIsEditing] = useState(false);
   const [editingRow, setEditingRow] = useState<BaseRow | null>(null);
@@ -140,6 +140,9 @@ export default function DataTable({ dataType, exportScope = 'all' }: DataTablePr
     if (sortBy) { params.set('sortBy', sortBy); params.set('sortOrder', sortOrder); }
     if (exportScope === 'filtered') {
       if (search) params.set('search', search);
+      // include current page & limit to export exactly what's shown
+      params.set('page', String(page));
+      params.set('limit', String(limit));
       if (dataType !== 'traffic-flight') params.set('showDeleted', String(showDeleted));
     }
     const url = `/api/data/${dataType}/export?${params.toString()}`;
@@ -392,17 +395,19 @@ export default function DataTable({ dataType, exportScope = 'all' }: DataTablePr
                   </th>
                 );
               })}
-              <th className="border border-gray-300 px-4 py-2 text-center text-sm font-medium text-gray-700 w-40">Actions</th>
+              {dataType !== 'traffic-flight' && (
+                <th className="border border-gray-300 px-4 py-2 text-center text-sm font-medium text-gray-700 w-40">Actions</th>
+              )}
             </tr>
           </thead>
           <tbody>
             {loading ? (
               <tr>
-                <td colSpan={columns.length + 1} className="border border-gray-300 px-4 py-8 text-center text-gray-500">Loading...</td>
+                <td colSpan={columns.length + (dataType !== 'traffic-flight' ? 1 : 0)} className="border border-gray-300 px-4 py-8 text-center text-gray-500">Loading...</td>
               </tr>
             ) : data.length === 0 ? (
               <tr>
-                <td colSpan={columns.length + 1} className="border border-gray-300 px-4 py-8 text-center text-gray-500">No data available</td>
+                <td colSpan={columns.length + (dataType !== 'traffic-flight' ? 1 : 0)} className="border border-gray-300 px-4 py-8 text-center text-gray-500">No data available</td>
               </tr>
             ) : (
               data.map((row, index) => (
@@ -434,14 +439,14 @@ export default function DataTable({ dataType, exportScope = 'all' }: DataTablePr
                       <td key={column.key} className="border border-gray-300 px-4 py-2 text-sm">{formatValue(val, column.key)}</td>
                     );
                   })}
-                  <td className="border border-gray-300 px-4 py-2 text-center">
-                    <div className="flex justify-center gap-2">
-                      <button onClick={() => openEdit(row)} className="bg-yellow-500 hover:bg-yellow-600 text-white p-1 rounded text-xs flex items-center gap-1" title="Edit">
-                        <Pencil className="w-3 h-3" />
-                        Edit
-                      </button>
-                      {dataType !== 'traffic-flight' && (
-                        row.deletedAt ? (
+                  {dataType !== 'traffic-flight' && (
+                    <td className="border border-gray-300 px-4 py-2 text-center">
+                      <div className="flex justify-center gap-2">
+                        <button onClick={() => openEdit(row)} className="bg-yellow-500 hover:bg-yellow-600 text-white p-1 rounded text-xs flex items-center gap-1" title="Edit">
+                          <Pencil className="w-3 h-3" />
+                          Edit
+                        </button>
+                        {row.deletedAt ? (
                           <button onClick={() => handleRestore(String(row.id))} className="bg-green-500 hover:bg-green-600 text-white p-1 rounded text-xs flex items-center gap-1" title="Restore">
                             <RotateCcw className="w-3 h-3" />
                             Undo
@@ -451,10 +456,10 @@ export default function DataTable({ dataType, exportScope = 'all' }: DataTablePr
                             <Trash2 className="w-3 h-3" />
                             Delete
                           </button>
-                        )
-                      )}
-                    </div>
-                  </td>
+                        )}
+                      </div>
+                    </td>
+                  )}
                 </tr>
               ))
             )}

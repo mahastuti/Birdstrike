@@ -45,7 +45,7 @@ export default function AuthWrapper({ children }: AuthWrapperProps) {
     return (
       <div className="fixed inset-0 backdrop-blur-sm bg-[#EEF5FF]/80 flex items-center justify-center z-50">
         <div className="bg-white p-8 rounded-lg max-w-md w-full mx-4 border-2 border-gray-300">
-          <h3 className="text-xl font-medium mb-6 text-center text-gray-800">Welcome!</h3>
+          <h3 className="text-xl font-medium mb-6 text-center text-gray-800">Selamat Datang!</h3>
 
           <form onSubmit={handleLogin} className="space-y-4">
             <div>

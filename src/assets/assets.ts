@@ -7,6 +7,7 @@ import map3 from "./map3.png";
 import map4 from "./map4.png";
 import map5 from "./map5.png";
 import map6 from "./map6.png";
+import data_jelek from "./data_jelek.png";
 
 export const assets = {
   logo,
@@ -17,5 +18,6 @@ export const assets = {
   map3,
   map4,
   map5,
-  map6
+  map6,
+  data_jelek
 };

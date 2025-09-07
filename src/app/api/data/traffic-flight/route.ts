@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 
+type SortOrder = 'asc' | 'desc';
+
 interface TrafficFlightCreate {
   no: number | null;
   act_type: string | null;
@@ -40,6 +42,21 @@ export async function POST(request: NextRequest) {
     }
 
     const text = await csvFile.text();
+
+    // Normalizers
+    const normalizeMonth = (v: string | null): string | null => {
+      if (!v) return null;
+      const n = Number.parseInt(String(v).trim(), 10);
+      if (Number.isNaN(n)) return String(v).trim();
+      if (n < 1 || n > 12) return String(n);
+      return String(n).padStart(2, '0');
+    };
+    const normalizeYear = (v: string | null): string | null => {
+      if (!v) return null;
+      const n = Number.parseInt(String(v).trim(), 10);
+      if (Number.isNaN(n)) return String(v).trim();
+      return String(n);
+    };
 
     // Robust CSV parser (supports quoted commas and newlines)
     const parseCsv = (input: string): string[][] => {
@@ -96,11 +113,24 @@ export async function POST(request: NextRequest) {
       if (!raw || raw.length < headers.length) continue;
       const row: Row = {};
       headers.forEach((h, idx) => { row[h] = (raw[idx] ?? '').replace(/\uFEFF/g, '') || null; });
+      row.bulan = normalizeMonth(row.bulan);
+      row.tahun = normalizeYear(row.tahun);
       if (!row.block_on || !row.block_off) continue; // required by schema
       inputRows.push(row);
     }
 
-    if (!inputRows.length) {
+    // Deduplicate incoming rows based on all columns except "no"
+    const seen = new Set<string>();
+    const deduped: Row[] = [];
+    for (const r of inputRows) {
+      const key = headers
+        .filter(h => h !== 'no')
+        .map(h => `${h}:${r[h] ?? ''}`)
+        .join('|');
+      if (!seen.has(key)) { seen.add(key); deduped.push(r); }
+    }
+
+    if (!deduped.length) {
       return NextResponse.json(
         { success: false, message: 'Tidak ada baris valid untuk diimport' },
         { status: 400 }
@@ -110,18 +140,24 @@ export async function POST(request: NextRequest) {
     // Group by (bulan,tahun)
     const groupKey = (r: Row) => `${r.bulan ?? ''}__${r.tahun ?? ''}`;
     const groups = new Map<string, Row[]>();
-    for (const r of inputRows) {
+    for (const r of deduped) {
       const key = groupKey(r);
       if (!groups.has(key)) groups.set(key, []);
       groups.get(key)!.push(r);
     }
 
-    // Check existing per group
+    // Check existing per group, tolerant to bulan format (e.g., "1" vs "01")
     const groupStats: { key: string; bulan: string | null; tahun: string | null; existing: number; incoming: number }[] = [];
     for (const [key, arr] of groups) {
       const [bulan, tahun] = key.split('__');
-      const existing = await prisma.trafficFlight.count({ where: { bulan: bulan || null, tahun: tahun || null } });
-      groupStats.push({ key, bulan: bulan || null, tahun: tahun || null, existing, incoming: arr.length });
+      const tn = tahun || null;
+      const bn = bulan || null;
+      const bulanAlt = bn ? String(Number.parseInt(bn, 10)) : null;
+      const where: Record<string, unknown> = {};
+      where.tahun = tn;
+      if (bn) (where as any).OR = [{ bulan: bn }, { bulan: bulanAlt }]; else (where as any).bulan = null;
+      const existing = await prisma.trafficFlight.count({ where });
+      groupStats.push({ key, bulan: bn, tahun: tn, existing, incoming: arr.length });
     }
 
     const conflicts = groupStats.filter(g => g.existing > 0);
@@ -135,25 +171,58 @@ export async function POST(request: NextRequest) {
     // If replace, clear existing per group
     if (conflicts.length && replace) {
       for (const g of conflicts) {
-        await prisma.trafficFlight.deleteMany({ where: { bulan: g.bulan, tahun: g.tahun } });
+        const alt = g.bulan ? String(Number.parseInt(String(g.bulan), 10)) : null;
+        const where = g.bulan ? { tahun: g.tahun, OR: [{ bulan: g.bulan }, { bulan: alt }] } : { tahun: g.tahun, bulan: null };
+        await prisma.trafficFlight.deleteMany({ where });
       }
     }
 
-    // Reindex "no" per group starting from 1
+    // Build existing signatures per (bulan,tahun) to skip duplicates
+    const sigFields = ['act_type','reg_no','opr','flight_number_origin','flight_number_dest','ata','block_on','block_off','atd','ground_time','org','des','ps','runway','avio_a','avio_d','f_stat','bulan','tahun'] as const;
+    const makeSig = (obj: Record<string, string | null>): string => sigFields.map(f => `${f}:${(obj[f] ?? '').toString().trim()}`).join('|');
+
+    const existingMap = new Map<string, Set<string>>();
+    for (const key of groups.keys()) {
+      const [bulanKey, tahunKey] = key.split('__');
+      const alt = bulanKey ? String(Number.parseInt(bulanKey, 10)) : null;
+      const where = bulanKey ? { tahun: tahunKey || null, OR: [{ bulan: bulanKey || null }, { bulan: alt }] } : { tahun: tahunKey || null, bulan: null };
+      const exist = await prisma.trafficFlight.findMany({ where, select: {
+        act_type: true, reg_no: true, opr: true, flight_number_origin: true, flight_number_dest: true, ata: true, block_on: true, block_off: true, atd: true,
+        ground_time: true, org: true, des: true, ps: true, runway: true, avio_a: true, avio_d: true, f_stat: true, bulan: true, tahun: true
+      }});
+      const set = new Set<string>();
+      for (const e of exist) set.add(makeSig(e as unknown as Record<string, string | null>));
+      existingMap.set(key, set);
+    }
+
+    // Concatenate all groups in order (tahun, then bulan), then reset and assign global ascending "no", skipping duplicates against existing
     const data: TrafficFlightCreate[] = [];
-    for (const [key, arr] of groups) {
-      let idx = 1;
+    const entries = Array.from(groups.entries()).sort(([ka], [kb]) => {
+      const [ba, ta] = ka.split('__');
+      const [bb, tb] = kb.split('__');
+      const toNum = (s: string | undefined) => {
+        const n = Number.parseInt(String(s ?? ''), 10);
+        return Number.isFinite(n) && !Number.isNaN(n) ? n : Number.MAX_SAFE_INTEGER;
+      };
+      const tcmp = toNum(ta) - toNum(tb);
+      if (tcmp !== 0) return tcmp;
+      return toNum(ba) - toNum(bb);
+    });
+    let idx = 1;
+    let skipped = 0;
+    for (const [key, arr] of entries) {
+      const [bulanKey, tahunKey] = key.split('__');
+      const set = existingMap.get(key) ?? new Set<string>();
       for (const r of arr) {
-        data.push({
-          no: idx++,
+        const sigObj: Record<string, string | null> = {
           act_type: r.act_type ?? null,
           reg_no: r.reg_no ?? null,
           opr: r.opr ?? null,
           flight_number_origin: r.flight_number_origin ?? null,
           flight_number_dest: r.flight_number_dest ?? null,
           ata: r.ata ?? null,
-          block_on: r.block_on as string,
-          block_off: r.block_off as string,
+          block_on: r.block_on ?? null,
+          block_off: r.block_off ?? null,
           atd: r.atd ?? null,
           ground_time: r.ground_time ?? null,
           org: r.org ?? null,
@@ -163,10 +232,18 @@ export async function POST(request: NextRequest) {
           avio_a: r.avio_a ?? null,
           avio_d: r.avio_d ?? null,
           f_stat: r.f_stat ?? null,
-          bulan: (key.split('__')[0] || null),
-          tahun: (key.split('__')[1] || null),
+          bulan: bulanKey || null,
+          tahun: tahunKey || null,
+        };
+        const sig = makeSig(sigObj);
+        if (set.has(sig)) { skipped++; continue; }
+        set.add(sig);
+        data.push({
+          no: idx++,
+          ...(sigObj as unknown as Omit<TrafficFlightCreate,'no'>)
         });
       }
+      existingMap.set(key, set);
     }
 
     if (!data.length) {
@@ -177,7 +254,29 @@ export async function POST(request: NextRequest) {
     }
 
     const result = await prisma.trafficFlight.createMany({ data, skipDuplicates: false });
-    return NextResponse.json({ success: true, message: `Berhasil import ${result.count} baris`, count: result.count, replaced: replace && conflicts.length ? conflicts.map(c => ({ bulan: c.bulan, tahun: c.tahun, deleted: c.existing })) : [] }, { status: 201 });
+
+    // Renumber ALL rows globally: order by tahun asc, bulan asc, then id asc
+    const all = await prisma.trafficFlight.findMany({ select: { id: true, bulan: true, tahun: true }, orderBy: { id: 'asc' } });
+    const toNum = (v: string | null | undefined) => {
+      const n = Number.parseInt(String(v ?? ''), 10);
+      return Number.isFinite(n) && !Number.isNaN(n) ? n : Number.MAX_SAFE_INTEGER;
+    };
+    const sorted = all.sort((a, b) => {
+      const ty = toNum(a.tahun) - toNum(b.tahun);
+      if (ty !== 0) return ty;
+      const tm = toNum(a.bulan) - toNum(b.bulan);
+      if (tm !== 0) return tm;
+      return Number(a.id) - Number(b.id);
+    });
+    const batchSize = 200;
+    for (let i = 0; i < sorted.length; i += batchSize) {
+      const chunk = sorted.slice(i, i + batchSize);
+      await prisma.$transaction(
+        chunk.map((row, idx) => prisma.trafficFlight.update({ where: { id: row.id as unknown as bigint }, data: { no: i + idx + 1 } }))
+      );
+    }
+
+    return NextResponse.json({ success: true, message: `Berhasil import ${result.count} baris${skipped ? ` (lewati duplikat: ${skipped})` : ''}`, count: result.count, skipped, replaced: replace && conflicts.length ? conflicts.map(c => ({ bulan: c.bulan, tahun: c.tahun, deleted: c.existing })) : [] }, { status: 201 });
   } catch (error) {
     console.error('Error processing CSV:', error);
     return NextResponse.json(
@@ -187,10 +286,65 @@ export async function POST(request: NextRequest) {
   }
 }
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
-    const data = await prisma.trafficFlight.findMany({ orderBy: { id: 'desc' } });
-    return NextResponse.json({ success: true, data });
+    const { searchParams } = new URL(request.url);
+    const page = parseInt(searchParams.get('page') || '1');
+    const limit = parseInt(searchParams.get('limit') || '10');
+    const search = searchParams.get('search') || '';
+
+    const sortByParam = searchParams.get('sortBy') || '';
+    const sortOrderParam: SortOrder = (searchParams.get('sortOrder') === 'asc' ? 'asc' : 'desc');
+
+    const allowedSort = new Set(['id','no','act_type','reg_no','opr','flight_number_origin','flight_number_dest','ata','block_on','block_off','atd','ground_time','org','des','ps','runway','avio_a','avio_d','f_stat','bulan','tahun']);
+    const orderBy: Record<string, SortOrder> = allowedSort.has(sortByParam) ? { [sortByParam]: sortOrderParam } : { no: 'asc' };
+
+    const skip = (page - 1) * limit;
+
+    const orFilters: Record<string, unknown>[] = [];
+    if (search) {
+      const s = search;
+      const like = (key: string) => ({ [key]: { contains: s, mode: 'insensitive' as const } });
+      for (const k of ['act_type','reg_no','opr','flight_number_origin','flight_number_dest','ata','block_on','block_off','atd','ground_time','org','des','ps','runway','avio_a','avio_d','f_stat','bulan','tahun']) {
+        orFilters.push(like(k));
+      }
+      if (/^\d+$/.test(s)) {
+        const asInt = Number.parseInt(s, 10);
+        if (!Number.isNaN(asInt)) orFilters.push({ no: asInt });
+        try { orFilters.push({ id: BigInt(s) }); } catch {}
+      }
+    }
+
+    const where = search ? { OR: orFilters } : {};
+
+    const [rows, total] = await Promise.all([
+      prisma.trafficFlight.findMany({ where, orderBy, skip, take: limit }),
+      prisma.trafficFlight.count({ where })
+    ]);
+
+    const serialize = (value: unknown): unknown => {
+      if (value === null || value === undefined) return value;
+      if (typeof value === 'bigint') return value.toString();
+      if (value instanceof Date) return value.toISOString();
+      if (Array.isArray(value)) return value.map(serialize);
+      if (typeof value === 'object') {
+        const out: Record<string, unknown> = {};
+        for (const [k, v] of Object.entries(value as Record<string, unknown>)) out[k] = serialize(v);
+        return out;
+      }
+      return value;
+    };
+
+    return NextResponse.json({
+      success: true,
+      data: serialize(rows),
+      pagination: {
+        page,
+        limit,
+        total,
+        pages: Math.ceil(total / limit)
+      }
+    });
   } catch (error) {
     console.error('Error fetching traffic flight data:', error);
     return NextResponse.json(

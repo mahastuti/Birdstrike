@@ -3,6 +3,7 @@ import { Trash2, RotateCcw, Download, ChevronLeft, ChevronRight, Pencil } from "
 
 interface DataTableProps {
   dataType: 'bird-strike' | 'bird-species' | 'traffic-flight';
+  exportScope?: 'all' | 'filtered';
 }
 
 type RowPrimitive = string | number | boolean | null | undefined;
@@ -19,7 +20,7 @@ enum SortDirection {
   Desc = 'desc',
 }
 
-export default function DataTable({ dataType }: DataTableProps) {
+export default function DataTable({ dataType, exportScope = 'all' }: DataTableProps) {
   const [data, setData] = useState<BaseRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [page, setPage] = useState(1);
@@ -135,30 +136,17 @@ export default function DataTable({ dataType }: DataTableProps) {
   };
 
   const downloadData = () => {
-    if (data.length === 0) return;
-
-    const headers = Object.keys(data[0]).filter(key => key !== 'deletedAt');
-    const csvContent = [
-      headers.join(','),
-      ...data.map(row =>
-        headers
-          .map(header => {
-            const value = row[header];
-            if (value === null || value === undefined) return '';
-            if (typeof value === 'string' && value.includes(',')) return `"${value}"`;
-            return String(value);
-          })
-          .join(',')
-      )
-    ].join('\n');
-
-    const blob = new Blob([csvContent], { type: 'text/csv' });
-    const url = URL.createObjectURL(blob);
+    const params = new URLSearchParams();
+    if (sortBy) { params.set('sortBy', sortBy); params.set('sortOrder', sortOrder); }
+    if (exportScope === 'filtered') {
+      if (search) params.set('search', search);
+      if (dataType !== 'traffic-flight') params.set('showDeleted', String(showDeleted));
+    }
+    const url = `/api/data/${dataType}/export?${params.toString()}`;
     const a = document.createElement('a');
     a.href = url;
-    a.download = `${dataType}-data.csv`;
+    a.rel = 'noopener noreferrer';
     a.click();
-    URL.revokeObjectURL(url);
   };
 
   const getColumns = () => {
@@ -327,6 +315,22 @@ export default function DataTable({ dataType }: DataTableProps) {
 
   return (
     <div className="bg-white border-2 border-gray-300 rounded-lg p-6">
+      <div className="mb-4">
+        <details className="bg-gray-50 border border-gray-300 rounded-lg">
+          <summary className="cursor-pointer flex justify-between items-center px-4 py-3">
+            <span className="font-medium text-gray-800">Cara Buka File CSV di Excel</span>
+            <span className="text-gray-600">▼</span>
+          </summary>
+          <div className="px-4 pb-4 text-sm text-gray-700">
+            <ol className="list-decimal pl-5 space-y-1">
+              <li>Di Excel pilih Data → From Text/CSV.</li>
+              <li>Pilih file CSV hasil download.</li>
+              <li>File Origin: UTF-8, Delimiter: Comma (,), lalu Load.</li>
+            </ol>
+            <p className="mt-2">Jangan double-click file CSV agar encoding tetap benar.</p>
+          </div>
+        </details>
+      </div>
       <div className="flex justify-between items-center mb-6">
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-2">
@@ -459,15 +463,20 @@ export default function DataTable({ dataType }: DataTableProps) {
 
       <div className="flex justify-between items-center mt-6">
         <div className="text-sm text-gray-600">
-          Showing {((page - 1) * limit) + 1} to {Math.min(page * limit, pagination.total)} of {pagination.total} entries
+          {(() => {
+            const total = pagination?.total ?? 0;
+            const start = total === 0 ? 0 : ((page - 1) * limit) + 1;
+            const end = total === 0 ? 0 : Math.min(page * limit, total);
+            return <>Showing {start} to {end} of {total} entries</>;
+          })()}
         </div>
         <div className="flex items-center gap-2">
           <button onClick={() => setPage(page - 1)} disabled={page === 1} className="border border-gray-300 px-3 py-1 rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 flex items-center gap-1 text-sm">
             <ChevronLeft className="w-4 h-4" />
             Previous
           </button>
-          <span className="px-3 py-1 text-sm">Page {page} of {pagination.pages}</span>
-          <button onClick={() => setPage(page + 1)} disabled={page === pagination.pages} className="border border-gray-300 px-3 py-1 rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 flex items-center gap-1 text-sm">
+          <span className="px-3 py-1 text-sm">Page {page} of {pagination?.pages ?? 0}</span>
+          <button onClick={() => setPage(page + 1)} disabled={page === (pagination?.pages ?? 1) || (pagination?.pages ?? 0) === 0} className="border border-gray-300 px-3 py-1 rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 flex items-center gap-1 text-sm">
             Next
             <ChevronRight className="w-4 h-4" />
           </button>

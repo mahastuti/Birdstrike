@@ -97,15 +97,23 @@ export default function DashboardInputData() {
       const formData = new FormData();
       formData.append('csvFile', data.csvFile);
 
-      const response = await fetch('/api/traffic-flight', {
-        method: 'POST',
-        body: formData,
-      });
+      let response = await fetch('/api/traffic-flight', { method: 'POST', body: formData });
+      let result = await response.json();
 
-      const result = await response.json();
+      if (response.status === 409 && result?.needsConfirm) {
+        const list = (result.conflicts as Array<{bulan:string; tahun:string; existing:number}>).map(c => `• Bulan ${c.bulan ?? '-'} Tahun ${c.tahun ?? '-'} (${c.existing} baris)`).join('\n');
+        const ok = typeof window !== 'undefined' ? window.confirm(`Data untuk kombinasi berikut sudah ada:\n${list}\n\nGanti (replace) data lama dengan data baru?`) : false;
+        if (!ok) {
+          setSubmitMessage('Upload dibatalkan. Data lama dipertahankan.');
+          setIsSuccess(false);
+          return;
+        }
+        response = await fetch('/api/traffic-flight?replace=true', { method: 'POST', body: formData });
+        result = await response.json();
+      }
 
       if (result.success) {
-        setSubmitMessage('File traffic flight berhasil diupload');
+        setSubmitMessage(`Berhasil import ${result.count} baris`);
         setIsSuccess(true);
       } else {
         throw new Error(result.message || 'Gagal mengupload file traffic flight');

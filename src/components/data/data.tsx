@@ -5,6 +5,7 @@ import DataTable from "@/components/data/data-table";
 
 export default function Data() {
   const [selectedDataType, setSelectedDataType] = useState('bird-strike');
+  const [exportScope, setExportScope] = useState<'all' | 'filtered'>('all');
 
   return (
     <div className="min-h-screen bg-[#EEF5FF] p-8 mb-22">
@@ -61,17 +62,34 @@ export default function Data() {
             </button>
           </div>
 
+          {/* Dropdown area */}
+          <div className="px-6 pb-2">
+            <div className="max-w-6xl mx-auto flex justify-end">
+              <label className="flex items-center gap-2 text-sm">
+                <span className="text-gray-700">Download:</span>
+                <select
+                  value={exportScope}
+                  onChange={(e) => setExportScope(e.target.value as 'all' | 'filtered')}
+                  className="border border-gray-300 rounded px-3 py-2 text-sm bg-white"
+                >
+                  <option value="all">Semua baris</option>
+                  <option value="filtered">Hasil filter saat ini</option>
+                </select>
+              </label>
+            </div>
+          </div>
+
           {/* Content Area */}
           <div className="bg-white p-6">
             <div className="min-h-[500px]">
               {selectedDataType === 'bird-strike' && (
-                <DataTable dataType="bird-strike" />
+                <DataTable dataType="bird-strike" exportScope={exportScope} />
               )}
               {selectedDataType === 'bird-species' && (
-                <DataTable dataType="bird-species" />
+                <DataTable dataType="bird-species" exportScope={exportScope} />
               )}
               {selectedDataType === 'traffic-flight' && (
-                <DataTable dataType="traffic-flight" />
+                <DataTable dataType="traffic-flight" exportScope={exportScope} />
               )}
               {selectedDataType === 'modeling' && (
                 <div className="bg-gray-100 border-2 border-gray-300 rounded-lg p-8 text-center">

@@ -99,6 +99,7 @@ export default function BirdStrikeForm({ onSubmit, isSubmitting = false }: BirdS
 
   const [airlineChoice, setAirlineChoice] = useState<string>('');
   const [jenisChoice, setJenisChoice] = useState<string>('');
+  const [komponenChoice, setKomponenChoice] = useState<string>('');
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -126,6 +127,7 @@ export default function BirdStrikeForm({ onSubmit, isSubmitting = false }: BirdS
     });
     setAirlineChoice('');
     setJenisChoice('');
+    setKomponenChoice('');
   };
 
   return (
@@ -324,11 +326,14 @@ export default function BirdStrikeForm({ onSubmit, isSubmitting = false }: BirdS
             <label className="block text-sm font-medium text-gray-700 mb-2">Komponen Pesawat</label>
             <div className="grid grid-cols-1 gap-2">
               <select
-                value={['Engine','Nose','Kaca Kokpit','Radome','Fuselage'].includes(formData.komponen_pesawat || '') ? (formData.komponen_pesawat || '') : (formData.komponen_pesawat ? 'Lainnya' : '')}
+                value={komponenChoice}
                 onChange={(e) => {
                   const v = e.target.value;
+                  setKomponenChoice(v);
                   if (['Engine','Nose','Kaca Kokpit','Radome','Fuselage'].includes(v)) {
                     setFormData({ ...formData, komponen_pesawat: v });
+                  } else if (v === 'Lainnya') {
+                    setFormData({ ...formData, komponen_pesawat: '' });
                   } else {
                     setFormData({ ...formData, komponen_pesawat: '' });
                   }
@@ -345,7 +350,7 @@ export default function BirdStrikeForm({ onSubmit, isSubmitting = false }: BirdS
                 <option value="Lainnya">Lainnya</option>
               </select>
 
-              {((formData.komponen_pesawat && !['Engine','Nose','Kaca Kokpit','Radome','Fuselage'].includes(formData.komponen_pesawat)) || formData.komponen_pesawat === '') && (
+              {komponenChoice === 'Lainnya' && (
                 <input
                   type="text"
                   value={formData.komponen_pesawat}

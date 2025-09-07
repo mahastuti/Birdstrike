@@ -21,9 +21,9 @@ const buildResponse = (csv: string, filename: string) =>
     }
   });
 
-export async function GET(request: NextRequest, context: { params: { dataType: string } }) {
+export async function GET(request: NextRequest, context: { params: Promise<{ dataType: string }> }) {
   try {
-    const { dataType } = context.params;
+    const { dataType } = await context.params;
     const { searchParams } = new URL(request.url);
     const search = searchParams.get('search') || '';
     const showDeleted = searchParams.get('showDeleted') === 'true';
@@ -130,7 +130,7 @@ export async function GET(request: NextRequest, context: { params: { dataType: s
       const sortBy = allowedSort.has(sortByParam) ? sortByParam : 'id';
       const orderBy = { [sortBy]: sortOrderParam } as Record<string, 'asc' | 'desc'>;
 
-      const orFilters: any[] = [];
+      const orFilters: Record<string, unknown>[] = [];
       if (search) {
         const s = search;
         const like = (key: string) => ({ [key]: { contains: s, mode: 'insensitive' as const } });
@@ -145,7 +145,7 @@ export async function GET(request: NextRequest, context: { params: { dataType: s
         ...(search && { OR: orFilters })
       };
 
-      let rows = await prisma.trafficFlight.findMany({ where, ...(sortBy === 'no' ? {} : { orderBy }) });
+      const rows = await prisma.trafficFlight.findMany({ where, ...(sortBy === 'no' ? {} : { orderBy }) });
       if (sortBy === 'no') {
         const num = (v: unknown): number => {
           if (v == null) return Number.POSITIVE_INFINITY;
@@ -154,7 +154,8 @@ export async function GET(request: NextRequest, context: { params: { dataType: s
           const n = m ? parseInt(m[0], 10) : Number.POSITIVE_INFINITY;
           return Number.isNaN(n) ? Number.POSITIVE_INFINITY : n;
         };
-        rows.sort((a: any, b: any) => {
+        type TF = { no?: unknown } & Record<string, unknown>;
+        rows.sort((a: TF, b: TF) => {
           const da = num(a.no);
           const db = num(b.no);
           if (da !== db) return sortOrderParam === 'asc' ? da - db : db - da;

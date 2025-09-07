@@ -1,10 +1,23 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 
+function serialize(value: unknown): unknown {
+  if (value === null || value === undefined) return value;
+  if (typeof value === 'bigint') return value.toString();
+  if (value instanceof Date) return value.toISOString();
+  if (Array.isArray(value)) return value.map(serialize);
+  if (typeof value === 'object') {
+    const out: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(value as Record<string, unknown>)) out[k] = serialize(v);
+    return out;
+  }
+  return value;
+}
+
 export async function POST(request: NextRequest) {
   try {
     const data = await request.json();
-    
+
     const mapWaktu = (time: string | null | undefined): string | null => {
       if (!time) return null;
       const hour = Number(time.split(':')[0]);
@@ -24,7 +37,7 @@ export async function POST(request: NextRequest) {
       return [first, ...words.slice(1)].join(' ');
     };
 
-    const newBirdData = await prisma.burung_bio.create({
+    const created = await prisma.burung_bio.create({
       data: {
         longitude: data.longitude,
         latitude: data.latitude,
@@ -43,18 +56,18 @@ export async function POST(request: NextRequest) {
     });
 
     return NextResponse.json(
-      { 
-        success: true, 
+      {
+        success: true,
         message: 'berhasil input',
-        data: newBirdData 
+        data: serialize(created)
       },
       { status: 201 }
     );
   } catch (error) {
     console.error('Error creating bird data:', error);
     return NextResponse.json(
-      { 
-        success: false, 
+      {
+        success: false,
         message: 'Gagal menyimpan data',
         error: error instanceof Error ? error.message : 'Unknown error'
       },
@@ -73,13 +86,13 @@ export async function GET() {
 
     return NextResponse.json({
       success: true,
-      data: birdData
+      data: serialize(birdData)
     });
   } catch (error) {
     console.error('Error fetching bird data:', error);
     return NextResponse.json(
-      { 
-        success: false, 
+      {
+        success: false,
         message: 'Gagal mengambil data',
         error: error instanceof Error ? error.message : 'Unknown error'
       },

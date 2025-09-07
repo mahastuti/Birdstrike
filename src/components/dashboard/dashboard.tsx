@@ -120,7 +120,7 @@ export default function Dashboard() {
             <DashboardInputData />
 
             {/* Logout Button */}
-            <div className="mt-8 mb-25 flex justify-center">
+            <div className="mt-8 mb-17 flex justify-center">
               <button
                 onClick={() => {
                   try {

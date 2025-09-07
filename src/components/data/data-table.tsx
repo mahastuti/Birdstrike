@@ -419,6 +419,7 @@ export default function DataTable({ dataType, exportScope = 'all' }: DataTablePr
                         <td key={column.key} className="border border-gray-300 px-4 py-2 text-sm">
                           {isImage ? (
                             <button onClick={() => openPreview(val, 'image')} className="inline-block border border-gray-300 rounded hover:opacity-90" title="Lihat & Download">
+                              {/* eslint-disable-next-line @next/next/no-img-element */}
                               <img src={val} alt="Dokumentasi" className="h-16 w-16 object-cover rounded" />
                             </button>
                           ) : isPdf ? (
@@ -492,6 +493,7 @@ export default function DataTable({ dataType, exportScope = 'all' }: DataTablePr
             </div>
             <div className="p-4 max-h-[75vh] overflow-auto">
               {previewType === 'image' ? (
+                /* eslint-disable-next-line @next/next/no-img-element */
                 <img src={previewSrc} alt="Dokumentasi" className="max-h-[70vh] w-auto mx-auto rounded" />
               ) : previewType === 'pdf' ? (
                 <iframe src={previewSrc} className="w-full h-[70vh] border" />

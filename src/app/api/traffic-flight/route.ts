@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import type { Prisma } from '@prisma/client';
 
-type SortOrder = 'asc' | 'desc';
 
 interface TrafficFlightCreate {
   no: number | null;
@@ -161,9 +160,9 @@ export async function POST(request: NextRequest) {
       const tn = tahun || null;
       const bn = bulan || null;
       const bulanAlt = bn ? String(Number.parseInt(bn, 10)) : null;
-      const where: Record<string, unknown> = {};
-      where.tahun = tn;
-      if (bn) (where as any).OR = [{ bulan: bn }, { bulan: bulanAlt }]; else (where as any).bulan = null;
+      const where: Prisma.TrafficFlightWhereInput = bn
+        ? { tahun: tn, OR: [{ bulan: bn }, { bulan: bulanAlt }] }
+        : { tahun: tn, bulan: null };
       const existing = await prisma.trafficFlight.count({ where });
       groupStats.push({ key, bulan: bn, tahun: tn, existing, incoming: arr.length });
     }

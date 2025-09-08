@@ -4,43 +4,13 @@ import { useState } from 'react';
 import dynamic from 'next/dynamic';
 import { BarChart3, LayoutDashboard, Map, FileBarChart } from 'lucide-react';
 import DashboardInputData from '@/components/dashboard/dashboard-input-data';
+import PredictSection from '@/components/dashboard/predict-section';
 
 const MapControls = dynamic(() => import('./map-controls'), { ssr: false });
 
 export default function Dashboard() {
   const [selectedSidebarOption, setSelectedSidebarOption] = useState('dashboard');
-  const [showPopup, setShowPopup] = useState(false);
-  const [predictionResult, setPredictionResult] = useState('0.98674');
-  
-  const [formData, setFormData] = useState({
-    tahun: '',
-    tanggal: '',
-    bulan: '',
-    jam: '',
-    waktu: '',
-    cuaca: '',
-    jumlahBurung: '',
-    titik: '',
-    fase: '',
-    strike: ''
-  });
 
-  const handleInputChange = (field: string, value: string) => {
-    setFormData(prev => ({
-      ...prev,
-      [field]: value
-    }));
-  };
-
-  const handlePredict = () => {
-    const randomResult = (Math.random() * 0.3 + 0.7).toFixed(5);
-    setPredictionResult(randomResult);
-    setShowPopup(true);
-  };
-
-  const closePopup = () => {
-    setShowPopup(false);
-  };
 
   return (
     <div className="min-h-screen flex bg-[#EEF5FF]">
@@ -143,135 +113,7 @@ export default function Dashboard() {
         )}
 
         {selectedSidebarOption === 'predict' && (
-          <div className="max-w-4xl mx-auto space-y-6">
-            {/* Prediction Result Section */}
-            <div className="bg-white border-2 border-gray-300 rounded-lg p-8">
-              <h2 className="text-xl font-medium text-center mb-6">Peluang Terjadinya bird strike</h2>
-
-              <div className="bg-gray-100 border-2 border-gray-300 rounded-lg p-8 mb-6">
-                <div className="text-4xl font-bold text-center mb-2">{predictionResult}</div>
-              </div>
-
-              <p className="text-center text-gray-700 mb-6">berbasi prediksi</p>
-
-              <div className="text-center">
-                <button
-                  onClick={handlePredict}
-                  className="bg-gray-300 hover:bg-gray-400 border-2 border-gray-300 px-8 py-3 rounded-lg font-medium transition-colors"
-                >
-                  predict
-                </button>
-              </div>
-            </div>
-
-            {/* Input Form Section */}
-            <div className="bg-white border-2 border-gray-300 rounded-lg p-6">
-              <h3 className="text-lg font-medium text-center mb-6">Input Data Prediksi</h3>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium mb-2">Tahun</label>
-                  <input
-                    type="text"
-                    value={formData.tahun}
-                    onChange={(e) => handleInputChange('tahun', e.target.value)}
-                    className="w-full p-2 border border-gray-300 rounded-md"
-                    placeholder="2024"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-2">Tanggal</label>
-                  <input
-                    type="text"
-                    value={formData.tanggal}
-                    onChange={(e) => handleInputChange('tanggal', e.target.value)}
-                    className="w-full p-2 border border-gray-300 rounded-md"
-                    placeholder="15"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-2">Bulan</label>
-                  <input
-                    type="text"
-                    value={formData.bulan}
-                    onChange={(e) => handleInputChange('bulan', e.target.value)}
-                    className="w-full p-2 border border-gray-300 rounded-md"
-                    placeholder="January"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-2">Jam</label>
-                  <input
-                    type="text"
-                    value={formData.jam}
-                    onChange={(e) => handleInputChange('jam', e.target.value)}
-                    className="w-full p-2 border border-gray-300 rounded-md"
-                    placeholder="14:30"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-2">Waktu</label>
-                  <input
-                    type="text"
-                    value={formData.waktu}
-                    onChange={(e) => handleInputChange('waktu', e.target.value)}
-                    className="w-full p-2 border border-gray-300 rounded-md"
-                    placeholder="Siang"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-2">Cuaca</label>
-                  <input
-                    type="text"
-                    value={formData.cuaca}
-                    onChange={(e) => handleInputChange('cuaca', e.target.value)}
-                    className="w-full p-2 border border-gray-300 rounded-md"
-                    placeholder="Cerah"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-2">Jumlah Burung pada Titik X</label>
-                  <input
-                    type="text"
-                    value={formData.jumlahBurung}
-                    onChange={(e) => handleInputChange('jumlahBurung', e.target.value)}
-                    className="w-full p-2 border border-gray-300 rounded-md"
-                    placeholder="25"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-2">Titik</label>
-                  <input
-                    type="text"
-                    value={formData.titik}
-                    onChange={(e) => handleInputChange('titik', e.target.value)}
-                    className="w-full p-2 border border-gray-300 rounded-md"
-                    placeholder="A1"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-2">Fase</label>
-                  <input
-                    type="text"
-                    value={formData.fase}
-                    onChange={(e) => handleInputChange('fase', e.target.value)}
-                    className="w-full p-2 border border-gray-300 rounded-md"
-                    placeholder="Takeoff"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-2">Strike</label>
-                  <input
-                    type="text"
-                    value={formData.strike}
-                    onChange={(e) => handleInputChange('strike', e.target.value)}
-                    className="w-full p-2 border border-gray-300 rounded-md"
-                    placeholder="Yes/No"
-                  />
-                </div>
-              </div>
-            </div>
-          </div>
+          <PredictSection />
         )}
 
         {selectedSidebarOption === 'map' && (
@@ -302,23 +144,6 @@ export default function Dashboard() {
         )}
       </div>
 
-      {/* Popup Modal */}
-      {showPopup && (
-        <div className="fixed inset-0 backdrop-blur-sm flex items-center justify-center z-50">
-          <div className="bg-white p-8 rounded-lg max-w-md w-full mx-4 text-center">
-            <h3 className="text-lg font-medium mb-4">Hasil Prediksi</h3>
-            <p className="text-gray-700 mb-6">
-              Peluang terjadinya birdstrike pada titik {formData.titik || 'X'} tahun {formData.tahun || '2024'} adalah {predictionResult}
-            </p>
-            <button
-              onClick={closePopup}
-              className="bg-blue-500 hover:bg-blue-600 text-white px-6 py-2 rounded-lg transition-colors"
-            >
-              Tutup
-            </button>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

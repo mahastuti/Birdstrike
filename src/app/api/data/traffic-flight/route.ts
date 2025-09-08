@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import type { Prisma } from '@prisma/client';
 
 type SortOrder = 'asc' | 'desc';
 
@@ -153,9 +154,9 @@ export async function POST(request: NextRequest) {
       const tn = tahun || null;
       const bn = bulan || null;
       const bulanAlt = bn ? String(Number.parseInt(bn, 10)) : null;
-      const where: Record<string, unknown> = {};
-      where.tahun = tn;
-      if (bn) (where as any).OR = [{ bulan: bn }, { bulan: bulanAlt }]; else (where as any).bulan = null;
+      const where: Prisma.TrafficFlightWhereInput = bn
+        ? { tahun: tn, OR: [{ bulan: bn }, { bulan: bulanAlt }] }
+        : { tahun: tn, bulan: null };
       const existing = await prisma.trafficFlight.count({ where });
       groupStats.push({ key, bulan: bn, tahun: tn, existing, incoming: arr.length });
     }
@@ -266,6 +267,7 @@ export async function POST(request: NextRequest) {
       if (ty !== 0) return ty;
       const tm = toNum(a.bulan) - toNum(b.bulan);
       if (tm !== 0) return tm;
+
       return Number(a.id) - Number(b.id);
     });
     const batchSize = 200;

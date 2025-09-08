@@ -40,7 +40,15 @@ export default function TrafficFlightInput() {
       }
 
       if (result.success) {
-        setSubmitMessage(`Berhasil import ${result.count} baris`);
+        let msg = `Berhasil import ${result.count} baris`;
+        if (typeof result.skipped === 'number' && result.skipped > 0) {
+          msg += ` (lewati duplikat: ${result.skipped})`;
+        }
+        if (Array.isArray(result.replaced) && result.replaced.length > 0) {
+          const det = result.replaced.map((r: { bulan: string | null; tahun: string | null; deleted: number }) => `Bulan ${r.bulan ?? '-'} Tahun ${r.tahun ?? '-'} (${r.deleted} dihapus)`).join(', ');
+          msg += `. Replace: ${det}`;
+        }
+        setSubmitMessage(msg);
         setIsSuccess(true);
       } else {
         throw new Error(result.message || 'Gagal mengupload file traffic flight');

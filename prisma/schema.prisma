@@ -66,7 +66,7 @@ model TrafficFlight {
   block_on             String
   block_off            String
   atd                  String?
-  ground_time          String?
+  ground_time          String? @db.VarChar
   org                  String? @db.VarChar
   des                  String? @db.VarChar
   ps                   String? @db.VarChar

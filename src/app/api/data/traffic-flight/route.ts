@@ -66,16 +66,17 @@ export async function POST(request: NextRequest) {
       let field = '';
       let i = 0;
       let inQuotes = false;
+      let quoteChar: '"' | "'" | null = null;
       while (i < input.length) {
         const ch = input[i];
         if (inQuotes) {
-          if (ch === '"') {
-            if (input[i + 1] === '"') { field += '"'; i += 2; continue; }
-            inQuotes = false; i++; continue;
+          if (ch === quoteChar) {
+            if (input[i + 1] === quoteChar) { field += quoteChar; i += 2; continue; }
+            inQuotes = false; quoteChar = null; i++; continue;
           }
           field += ch; i++; continue;
         } else {
-          if (ch === '"') { inQuotes = true; i++; continue; }
+          if (ch === '"' || ch === "'") { inQuotes = true; quoteChar = ch as '"' | "'"; i++; continue; }
           if (ch === ',') { cur.push(field.trim()); field = ''; i++; continue; }
           if (ch === '\n') { cur.push(field.trim()); rows.push(cur); cur = []; field = ''; i++; continue; }
           if (ch === '\r') { i++; continue; }
@@ -95,7 +96,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const headers = rows[0].map(h => h.replace(/"/g, ''));
+    const headers = rows[0].map(h => h.replace(/\uFEFF/g, '').replace(/\"/g, '').trim());
     const required = [
       'no','act_type','reg_no','opr','flight_number_origin','flight_number_dest','ata','block_on','block_off','atd','ground_time','org','des','ps','runway','avio_a','avio_d','f_stat','bulan','tahun'
     ];
@@ -111,12 +112,29 @@ export async function POST(request: NextRequest) {
     const inputRows: Row[] = [];
     for (let i = 1; i < rows.length; i++) {
       const raw = rows[i];
-      if (!raw || raw.length < headers.length) continue;
+      if (!raw) continue;
+      const gtIdx = headers.indexOf('ground_time');
+      const adj = raw.slice();
+      if (gtIdx >= 0 && adj.length > headers.length) {
+        while (adj.length > headers.length && gtIdx + 1 < adj.length) {
+          adj[gtIdx] = `${(adj[gtIdx] ?? '').trim()}${adj[gtIdx] !== undefined ? ', ' : ','}${(adj[gtIdx + 1] ?? '').trim()}`;
+          adj.splice(gtIdx + 1, 1);
+        }
+      }
       const row: Row = {};
-      headers.forEach((h, idx) => { row[h] = (raw[idx] ?? '').replace(/\uFEFF/g, '') || null; });
+      if (headers.length === required.length) {
+        for (let j = 0; j < required.length; j++) {
+          const key = required[j];
+          row[key] = (((adj[j] ?? '') as string).replace(/\uFEFF/g, '')) || null;
+        }
+      } else {
+        headers.forEach((h, idx) => { row[h] = (((adj[idx] ?? '') as string).replace(/\uFEFF/g, '')) || null; });
+      }
       row.bulan = normalizeMonth(row.bulan);
       row.tahun = normalizeYear(row.tahun);
-      if (!row.block_on || !row.block_off) continue; // required by schema
+      // Keep all rows; ensure non-null strings for required fields
+      if (!row.block_on) (row as Record<string,string|null>).block_on = '';
+      if (!row.block_off) (row as Record<string,string|null>).block_off = '';
       inputRows.push(row);
     }
 
@@ -267,7 +285,6 @@ export async function POST(request: NextRequest) {
       if (ty !== 0) return ty;
       const tm = toNum(a.bulan) - toNum(b.bulan);
       if (tm !== 0) return tm;
-
       return Number(a.id) - Number(b.id);
     });
     const batchSize = 200;
@@ -294,6 +311,8 @@ export async function GET(request: NextRequest) {
     const page = parseInt(searchParams.get('page') || '1');
     const limit = parseInt(searchParams.get('limit') || '10');
     const search = searchParams.get('search') || '';
+    const bulanFilter = (searchParams.get('bulan') || '').trim();
+    const tahunFilter = (searchParams.get('tahun') || '').trim();
 
     const sortByParam = searchParams.get('sortBy') || '';
     const sortOrderParam: SortOrder = (searchParams.get('sortOrder') === 'asc' ? 'asc' : 'desc');
@@ -317,12 +336,29 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    const where = search ? { OR: orFilters } : {};
+    const andConds: Prisma.TrafficFlightWhereInput[] = [];
+    if (search && orFilters.length) andConds.push({ OR: orFilters as unknown as Prisma.TrafficFlightWhereInput[] } as unknown as Prisma.TrafficFlightWhereInput);
+    if (tahunFilter) andConds.push({ tahun: tahunFilter });
+    if (bulanFilter) {
+      const bulanAlt = String(Number.parseInt(bulanFilter, 10));
+      andConds.push({ OR: [{ bulan: bulanFilter }, { bulan: bulanAlt }] });
+    }
+    const where: Prisma.TrafficFlightWhereInput = andConds.length ? { AND: andConds } : {};
 
-    const [rows, total] = await Promise.all([
+    const [rows, total, distinct] = await Promise.all([
       prisma.trafficFlight.findMany({ where, orderBy, skip, take: limit }),
-      prisma.trafficFlight.count({ where })
+      prisma.trafficFlight.count({ where }),
+      prisma.trafficFlight.findMany({ select: { bulan: true, tahun: true } })
     ]);
+
+    const monthsSet = new Set<string>();
+    const yearsSet = new Set<string>();
+    for (const r of distinct) {
+      if (r.bulan) monthsSet.add(String(r.bulan).padStart(2, '0'));
+      if (r.tahun) yearsSet.add(String(r.tahun));
+    }
+    const months = Array.from(monthsSet).sort((a, b) => Number(a) - Number(b));
+    const years = Array.from(yearsSet).sort((a, b) => Number(a) - Number(b));
 
     const serialize = (value: unknown): unknown => {
       if (value === null || value === undefined) return value;
@@ -345,7 +381,8 @@ export async function GET(request: NextRequest) {
         limit,
         total,
         pages: Math.ceil(total / limit)
-      }
+      },
+      filters: { months, years }
     });
   } catch (error) {
     console.error('Error fetching traffic flight data:', error);

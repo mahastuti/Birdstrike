@@ -38,6 +38,11 @@ export default function DataTable({ dataType, exportScope = 'all' }: DataTablePr
   const [sortBy, setSortBy] = useState<string>(dataType === 'traffic-flight' ? 'no' : '');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>(dataType === 'traffic-flight' ? SortDirection.Asc : SortDirection.Desc);
 
+  const [bulan, setBulan] = useState<string>('');
+  const [tahun, setTahun] = useState<string>('');
+  const [bulanOptions, setBulanOptions] = useState<string[]>([]);
+  const [tahunOptions, setTahunOptions] = useState<string[]>([]);
+
   const [isEditing, setIsEditing] = useState(false);
   const [editingRow, setEditingRow] = useState<BaseRow | null>(null);
   const [editValues, setEditValues] = useState<EditValues>({});
@@ -58,6 +63,10 @@ export default function DataTable({ dataType, exportScope = 'all' }: DataTablePr
         params.set('sortBy', sortBy);
         params.set('sortOrder', sortOrder);
       }
+      if (dataType === 'traffic-flight') {
+        if (bulan) params.set('bulan', bulan);
+        if (tahun) params.set('tahun', tahun);
+      }
 
       const response = await fetch(`/api/data/${dataType}?${params}`, {
         signal
@@ -72,6 +81,12 @@ export default function DataTable({ dataType, exportScope = 'all' }: DataTablePr
       if (!signal?.aborted && result.success) {
         setData(result.data);
         setPagination(result.pagination);
+        if (dataType === 'traffic-flight') {
+          const months: string[] = result?.filters?.months || Array.from({ length: 12 }, (_, i) => String(i + 1).padStart(2, '0'));
+          const years: string[] = result?.filters?.years || [];
+          setBulanOptions(months);
+          setTahunOptions(years);
+        }
       }
     } catch (error) {
       if (signal?.aborted) return;
@@ -81,7 +96,7 @@ export default function DataTable({ dataType, exportScope = 'all' }: DataTablePr
     } finally {
       if (!signal?.aborted) setLoading(false);
     }
-  }, [page, limit, search, showDeleted, dataType, sortBy, sortOrder]);
+  }, [page, limit, search, showDeleted, dataType, sortBy, sortOrder, bulan, tahun]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -140,10 +155,13 @@ export default function DataTable({ dataType, exportScope = 'all' }: DataTablePr
     if (sortBy) { params.set('sortBy', sortBy); params.set('sortOrder', sortOrder); }
     if (exportScope === 'filtered') {
       if (search) params.set('search', search);
-      // include current page & limit to export exactly what's shown
       params.set('page', String(page));
       params.set('limit', String(limit));
       if (dataType !== 'traffic-flight') params.set('showDeleted', String(showDeleted));
+      if (dataType === 'traffic-flight') {
+        if (bulan) params.set('bulan', bulan);
+        if (tahun) params.set('tahun', tahun);
+      }
     }
     const url = `/api/data/${dataType}/export?${params.toString()}`;
     const a = document.createElement('a');
@@ -359,6 +377,36 @@ export default function DataTable({ dataType, exportScope = 'all' }: DataTablePr
         </div>
 
         <div className="flex items-center gap-4">
+          {dataType === 'traffic-flight' && (
+            <>
+              <label className="flex items-center gap-2 text-sm">
+                <span className="text-sm">Bulan:</span>
+                <select
+                  value={bulan}
+                  onChange={(e) => { setBulan(e.target.value); setPage(1); }}
+                  className="border border-gray-300 rounded px-2 py-1 text-sm"
+                >
+                  <option value="">Semua</option>
+                  {bulanOptions.map((m) => (
+                    <option key={m} value={m}>{m}</option>
+                  ))}
+                </select>
+              </label>
+              <label className="flex items-center gap-2 text-sm">
+                <span className="text-sm">Tahun:</span>
+                <select
+                  value={tahun}
+                  onChange={(e) => { setTahun(e.target.value); setPage(1); }}
+                  className="border border-gray-300 rounded px-2 py-1 text-sm"
+                >
+                  <option value="">Semua</option>
+                  {tahunOptions.map((y) => (
+                    <option key={y} value={y}>{y}</option>
+                  ))}
+                </select>
+              </label>
+            </>
+          )}
           <div className="flex items-center gap-2">
             <span className="text-sm">Search:</span>
             <input

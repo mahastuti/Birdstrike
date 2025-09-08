@@ -65,16 +65,17 @@ export async function POST(request: NextRequest) {
       let field = '';
       let i = 0;
       let inQuotes = false;
+      let quoteChar: '"' | "'" | null = null;
       while (i < input.length) {
         const ch = input[i];
         if (inQuotes) {
-          if (ch === '"') {
-            if (input[i + 1] === '"') { field += '"'; i += 2; continue; }
-            inQuotes = false; i++; continue;
+          if (ch === quoteChar) {
+            if (input[i + 1] === quoteChar) { field += quoteChar; i += 2; continue; }
+            inQuotes = false; quoteChar = null; i++; continue;
           }
           field += ch; i++; continue;
         } else {
-          if (ch === '"') { inQuotes = true; i++; continue; }
+          if (ch === '"' || ch === "'") { inQuotes = true; quoteChar = ch as '"' | "'"; i++; continue; }
           if (ch === ',') { cur.push(field.trim()); field = ''; i++; continue; }
           if (ch === '\n') { cur.push(field.trim()); rows.push(cur); cur = []; field = ''; i++; continue; }
           if (ch === '\r') { i++; continue; }
@@ -94,7 +95,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const headers = rows[0].map(h => h.replace(/"/g, ''));
+    const headers = rows[0].map(h => h.replace(/\uFEFF/g, '').replace(/"/g, '').trim());
     const required = [
       'no','act_type','reg_no','opr','flight_number_origin','flight_number_dest','ata','block_on','block_off','atd','ground_time','org','des','ps','runway','avio_a','avio_d','f_stat','bulan','tahun'
     ];
@@ -110,12 +111,32 @@ export async function POST(request: NextRequest) {
     const inputRows: Row[] = [];
     for (let i = 1; i < rows.length; i++) {
       const raw = rows[i];
-      if (!raw || raw.length < headers.length) continue;
+      if (!raw) continue;
+      // Fix for unquoted comma in ground_time like: "1 day, 8:21:00"
+      const gtIdx = headers.indexOf('ground_time');
+      const adj = raw.slice();
+      if (gtIdx >= 0 && adj.length > headers.length) {
+        while (adj.length > headers.length && gtIdx + 1 < adj.length) {
+          adj[gtIdx] = `${(adj[gtIdx] ?? '').trim()}${adj[gtIdx] !== undefined ? ', ' : ','}${(adj[gtIdx + 1] ?? '').trim()}`;
+          adj.splice(gtIdx + 1, 1);
+        }
+      }
       const row: Row = {};
-      headers.forEach((h, idx) => { row[h] = (raw[idx] ?? '').replace(/\uFEFF/g, '') || null; });
+      if (headers.length === required.length) {
+        for (let j = 0; j < required.length; j++) {
+          const key = required[j];
+          row[key] = (adj[j] ?? '').toString().replace(/\uFEFF/g, '');
+        }
+      } else {
+        headers.forEach((h, idx) => { row[h] = (adj[idx] ?? '').toString().replace(/\uFEFF/g, ''); });
+      }
       row.bulan = normalizeMonth(row.bulan);
       row.tahun = normalizeYear(row.tahun);
-      if (!row.block_on || !row.block_off) continue; // required by schema
+      if (!row.block_on || !row.block_off) {
+        // Ensure non-null strings for prisma schema
+        row.block_on = (row.block_on ?? '') as string;
+        row.block_off = (row.block_off ?? '') as string;
+      }
       inputRows.push(row);
     }
 
@@ -126,16 +147,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Deduplicate incoming rows based on all columns except "no"
-    const seen = new Set<string>();
-    const deduped: Row[] = [];
-    for (const r of inputRows) {
-      const key = headers
-        .filter(h => h !== 'no')
-        .map(h => `${h}:${r[h] ?? ''}`)
-        .join('|');
-      if (!seen.has(key)) { seen.add(key); deduped.push(r); }
-    }
+    // Keep all rows; do not deduplicate within the same file
+    const deduped: Row[] = inputRows;
 
     if (!deduped.length) {
       return NextResponse.json(
@@ -185,22 +198,8 @@ export async function POST(request: NextRequest) {
     }
 
     // Build existing signatures per (bulan,tahun) to skip duplicates
-    const sigFields = ['act_type','reg_no','opr','flight_number_origin','flight_number_dest','ata','block_on','block_off','atd','ground_time','org','des','ps','runway','avio_a','avio_d','f_stat','bulan','tahun'] as const;
-    const makeSig = (obj: Record<string, string | null>): string => sigFields.map(f => `${f}:${(obj[f] ?? '').toString().trim()}`).join('|');
 
-    const existingMap = new Map<string, Set<string>>();
-    for (const key of groups.keys()) {
-      const [bulanKey, tahunKey] = key.split('__');
-      const alt = bulanKey ? String(Number.parseInt(bulanKey, 10)) : null;
-      const where = bulanKey ? { tahun: tahunKey || null, OR: [{ bulan: bulanKey || null }, { bulan: alt }] } : { tahun: tahunKey || null, bulan: null };
-      const exist = await prisma.trafficFlight.findMany({ where, select: {
-        act_type: true, reg_no: true, opr: true, flight_number_origin: true, flight_number_dest: true, ata: true, block_on: true, block_off: true, atd: true,
-        ground_time: true, org: true, des: true, ps: true, runway: true, avio_a: true, avio_d: true, f_stat: true, bulan: true, tahun: true
-      }});
-      const set = new Set<string>();
-      for (const e of exist) set.add(makeSig(e as unknown as Record<string, string | null>));
-      existingMap.set(key, set);
-    }
+    // No duplicate check against existing DB; import all rows
 
     // Concatenate all groups in order (tahun, then bulan), then reset and assign global ascending "no", skipping duplicates against existing
     const data: TrafficFlightCreate[] = [];
@@ -216,10 +215,9 @@ export async function POST(request: NextRequest) {
       return toNum(ba) - toNum(bb);
     });
     let idx = 1;
-    let skipped = 0;
+    const skipped = 0;
     for (const [key, arr] of entries) {
       const [bulanKey, tahunKey] = key.split('__');
-      const set = existingMap.get(key) ?? new Set<string>();
       for (const r of arr) {
         const sigObj: Record<string, string | null> = {
           act_type: r.act_type ?? null,
@@ -228,8 +226,8 @@ export async function POST(request: NextRequest) {
           flight_number_origin: r.flight_number_origin ?? null,
           flight_number_dest: r.flight_number_dest ?? null,
           ata: r.ata ?? null,
-          block_on: r.block_on ?? null,
-          block_off: r.block_off ?? null,
+          block_on: (r.block_on ?? '') as string,
+          block_off: (r.block_off ?? '') as string,
           atd: r.atd ?? null,
           ground_time: r.ground_time ?? null,
           org: r.org ?? null,
@@ -242,15 +240,11 @@ export async function POST(request: NextRequest) {
           bulan: bulanKey || null,
           tahun: tahunKey || null,
         };
-        const sig = makeSig(sigObj);
-        if (set.has(sig)) { skipped++; continue; }
-        set.add(sig);
         data.push({
           no: idx++,
           ...(sigObj as unknown as Omit<TrafficFlightCreate,'no'>)
         });
       }
-      existingMap.set(key, set);
     }
 
     if (!data.length) {

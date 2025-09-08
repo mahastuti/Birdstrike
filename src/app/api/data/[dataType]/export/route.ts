@@ -140,6 +140,9 @@ export async function GET(request: NextRequest, context: { params: Promise<{ dat
       const sortBy = allowedSort.has(sortByParam) ? sortByParam : 'id';
       const orderBy = { [sortBy]: sortOrderParam } as Record<string, 'asc' | 'desc'>;
 
+      const bulanFilter = (searchParams.get('bulan') || '').trim();
+      const tahunFilter = (searchParams.get('tahun') || '').trim();
+
       const orFilters: Record<string, unknown>[] = [];
       if (search) {
         const s = search;
@@ -151,9 +154,14 @@ export async function GET(request: NextRequest, context: { params: Promise<{ dat
         if (!Number.isNaN(asInt)) orFilters.push({ no: asInt });
       }
 
-      const where = {
-        ...(search && { OR: orFilters })
-      };
+      const andConds: Record<string, unknown>[] = [];
+      if (search && orFilters.length) andConds.push({ OR: orFilters });
+      if (tahunFilter) andConds.push({ tahun: tahunFilter });
+      if (bulanFilter) {
+        const bulanAlt = String(Number.parseInt(bulanFilter, 10));
+        andConds.push({ OR: [{ bulan: bulanFilter }, { bulan: bulanAlt }] });
+      }
+      const where = andConds.length ? { AND: andConds } : {};
 
       let rows = await prisma.trafficFlight.findMany({ where, ...(sortBy === 'no' ? {} : { orderBy }) });
       if (sortBy === 'no') {

@@ -23,9 +23,10 @@ export default function AuthWrapper({ children }: AuthWrapperProps) {
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    // ❗️HANYA UNTUK DEMO:
-    // Ganti dengan call ke /api/auth/login (lihat opsi B) untuk beneran.
-    const ok = username.trim() && password.trim(); // demo rule
+    const VALID_USERNAME = 'admin';
+    const VALID_PASSWORD = 'admin123';
+
+    const ok = username === VALID_USERNAME && password === VALID_PASSWORD;
     if (ok) {
       setIsAuthenticated(true);
       try {

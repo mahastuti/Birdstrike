@@ -51,11 +51,11 @@ export default function TrafficFlightForm({ onSubmit, isSubmitting = false }: Tr
 
         {showInstructions && (
           <div className="mt-4 space-y-3 text-black">
-            <div className="font-medium">1. Siapkan CSV data "Flight Movement Flight"</div>
+            <div className="font-medium">1. Siapkan CSV data "Flight Movement"</div>
             <div className="font-medium">2. Kolom pada data tersebut tidak bisa langsung dibaca karena bentuknya seperti:</div>
             <div className="bg-white p-3 rounded border">
               <Image
-                src={assets.map6.src}
+                src={assets.data_jelek.src}
                 alt="Contoh tampilan kolom data tidak langsung terbaca"
                 width={900}
                 height={600}
@@ -69,7 +69,7 @@ export default function TrafficFlightForm({ onSubmit, isSubmitting = false }: Tr
               <p className="text-sm text-gray-700 mb-2">Kolom Data:</p>
               <div className="text-[11px] font-mono bg-gray-50 p-2 rounded overflow-x-auto">
                 <div>
-                  no|act_type|reg_no|opr|flight_number_origin|flight_number_dest|ata|block_on|block_off|atd|ground_time|org|des|ps|runway|avio_a|avio_d|f_stat|bulan|tahun
+                  no,act_type,reg_no,opr,flight_number_origin,flight_number_dest,ata,block_on,block_off,atd,ground_time,org,des,ps,runway,avio_a,avio_d,f_stat,bulan,tahun
                 </div>
               </div>
             </div>
@@ -83,15 +83,11 @@ export default function TrafficFlightForm({ onSubmit, isSubmitting = false }: Tr
                   2,A320,PKAZQ,AWQ,AWQ327,AWQ320,01/00:03,01/00:07,01/05:03,01/05:13,4:56:00,KUL,KUL,A03,28,1,1,NML,1,2025
                 </div>
               </div>
-              <p className="mt-3 text-sm text-gray-700">
-                Catatan: nilai yang mengandung koma harus dibungkus tanda kutip agar dianggap 1 kolom. Contoh ground_time:
-                <span className="ml-1 font-mono">"5 days, 20:10:00"</span> atau <span className="font-mono">'1 day, 08:21:00'</span>.
-                Keduanya akan terbaca sebagai satu kolom, tidak dipecah.
-              </p>
               <div className="mt-3">
                 <a
-                  href="/assets/data_kjelek.xlsx"
-                  download
+                  href="https://docs.google.com/spreadsheets/d/1LwMpwmsb0M4gQJwMkLABA7egSmX-JIoqhg3TfCnPC6s/edit?usp=sharing"
+                  target="_blank"
+                  rel="noopener noreferrer"
                   className="inline-block text-sm font-medium text-blue-600 hover:underline"
                 >
                   File Contoh Benar

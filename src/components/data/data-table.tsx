@@ -443,19 +443,17 @@ export default function DataTable({ dataType, exportScope = 'all' }: DataTablePr
                   </th>
                 );
               })}
-              {dataType !== 'traffic-flight' && (
-                <th className="border border-gray-300 px-4 py-2 text-center text-sm font-medium text-gray-700 w-40">Actions</th>
-              )}
+              <th className="border border-gray-300 px-4 py-2 text-center text-sm font-medium text-gray-700 w-40">Actions</th>
             </tr>
           </thead>
           <tbody>
             {loading ? (
               <tr>
-                <td colSpan={columns.length + (dataType !== 'traffic-flight' ? 1 : 0)} className="border border-gray-300 px-4 py-8 text-center text-gray-500">Loading...</td>
+                <td colSpan={columns.length + 1} className="border border-gray-300 px-4 py-8 text-center text-gray-500">Loading...</td>
               </tr>
             ) : data.length === 0 ? (
               <tr>
-                <td colSpan={columns.length + (dataType !== 'traffic-flight' ? 1 : 0)} className="border border-gray-300 px-4 py-8 text-center text-gray-500">No data available</td>
+                <td colSpan={columns.length + 1} className="border border-gray-300 px-4 py-8 text-center text-gray-500">No data available</td>
               </tr>
             ) : (
               data.map((row, index) => (
@@ -487,27 +485,25 @@ export default function DataTable({ dataType, exportScope = 'all' }: DataTablePr
                       <td key={column.key} className="border border-gray-300 px-4 py-2 text-sm">{formatValue(val, column.key)}</td>
                     );
                   })}
-                  {dataType !== 'traffic-flight' && (
-                    <td className="border border-gray-300 px-4 py-2 text-center">
-                      <div className="flex justify-center gap-2">
-                        <button onClick={() => openEdit(row)} className="bg-yellow-500 hover:bg-yellow-600 text-white p-1 rounded text-xs flex items-center gap-1" title="Edit">
-                          <Pencil className="w-3 h-3" />
-                          Edit
+                  <td className="border border-gray-300 px-4 py-2 text-center">
+                    <div className="flex justify-center gap-2">
+                      <button onClick={() => openEdit(row)} className="bg-yellow-500 hover:bg-yellow-600 text-white p-1 rounded text-xs flex items-center gap-1" title="Edit">
+                        <Pencil className="w-3 h-3" />
+                        Edit
+                      </button>
+                      {row.deletedAt ? (
+                        <button onClick={() => handleRestore(String(row.id))} className="bg-green-500 hover:bg-green-600 text-white p-1 rounded text-xs flex items-center gap-1" title="Restore">
+                          <RotateCcw className="w-3 h-3" />
+                          Undo
                         </button>
-                        {row.deletedAt ? (
-                          <button onClick={() => handleRestore(String(row.id))} className="bg-green-500 hover:bg-green-600 text-white p-1 rounded text-xs flex items-center gap-1" title="Restore">
-                            <RotateCcw className="w-3 h-3" />
-                            Undo
-                          </button>
-                        ) : (
-                          <button onClick={() => handleDelete(String(row.id))} className="bg-red-500 hover:bg-red-600 text-white p-1 rounded text-xs flex items-center gap-1" title="Delete">
-                            <Trash2 className="w-3 h-3" />
-                            Delete
-                          </button>
-                        )}
-                      </div>
-                    </td>
-                  )}
+                      ) : (
+                        <button onClick={() => handleDelete(String(row.id))} className="bg-red-500 hover:bg-red-600 text-white p-1 rounded text-xs flex items-center gap-1" title="Delete">
+                          <Trash2 className="w-3 h-3" />
+                          Delete
+                        </button>
+                      )}
+                    </div>
+                  </td>
                 </tr>
               ))
             )}

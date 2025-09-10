@@ -24,7 +24,7 @@ export default function AuthWrapper({ children }: AuthWrapperProps) {
     e.preventDefault();
 
     const VALID_USERNAME = 'admin';
-    const VALID_PASSWORD = 'admin123';
+    const VALID_PASSWORD = 'ganti';
 
     const ok = username === VALID_USERNAME && password === VALID_PASSWORD;
     if (ok) {

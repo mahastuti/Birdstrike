@@ -144,7 +144,7 @@ export async function POST(request: NextRequest) {
       const adj = raw.slice();
       if (gtIdx >= 0 && adj.length > rawHeaders.length) {
         while (adj.length > rawHeaders.length && gtIdx + 1 < adj.length) {
-          adj[gtIdx] = `${(adj[gtIdx] ?? '').toString().trim()}${adj[gtIdx] !== undefined ? ', ' : ','}${(adj[gtIdx + 1] ?? '').toString().trim()}`;
+          adj[gtIdx] = `${(adj[gtIdx] ?? '').toString().trim()}${(adj[gtIdx] !== undefined ? ', ' : ',')}${(adj[gtIdx + 1] ?? '').toString().trim()}`;
           adj.splice(gtIdx + 1, 1);
         }
       }
@@ -154,6 +154,12 @@ export async function POST(request: NextRequest) {
         const idx = indices[key as typeof canonicalKeys[number]];
         const val = idx !== undefined ? (adj[idx] ?? '') as string : '';
         row[key as string] = val.replace(/\uFEFF/g, '') || null;
+      }
+
+      // Normalize 'no' to remove any dots (e.g., "1." => "1")
+      if (row.no) {
+        const cleaned = String(row.no).replace(/\./g, '').trim();
+        row.no = cleaned || null;
       }
 
       row.bulan = normalizeMonth(row.bulan);
@@ -171,8 +177,16 @@ export async function POST(request: NextRequest) {
     const data: TrafficFlightCreate[] = [];
     let idx = 1;
     for (const r of inputRows) {
+      let noVal: number | null = null;
+      if (r.no) {
+        const m = String(r.no).match(/^\d+/);
+        if (m) {
+          const n = Number.parseInt(m[0], 10);
+          noVal = Number.isNaN(n) ? null : n;
+        }
+      }
       data.push({
-        no: idx++,
+        no: noVal ?? idx++,
         act_type: r.act_type ?? null,
         reg_no: r.reg_no ?? null,
         opr: r.opr ?? null,

@@ -182,6 +182,12 @@ export async function POST(request: NextRequest) {
         row[key as string] = val.replace(/\uFEFF/g, '') || null;
       }
 
+      // Normalize 'no' to remove any dots (e.g., "1." => "1")
+      if (row.no) {
+        const cleaned = String(row.no).replace(/\./g, '').trim();
+        row.no = cleaned || null;
+      }
+
       row.bulan = normalizeMonth(row.bulan);
       row.tahun = normalizeYear(row.tahun);
       if (!row.block_on) row.block_on = '';
@@ -200,8 +206,16 @@ export async function POST(request: NextRequest) {
     const data: TrafficFlightCreate[] = [];
     let idx = 1;
     for (const r of inputRows) {
+      let noVal: number | null = null;
+      if (r.no) {
+        const m = String(r.no).match(/^\d+/);
+        if (m) {
+          const n = Number.parseInt(m[0], 10);
+          noVal = Number.isNaN(n) ? null : n;
+        }
+      }
       data.push({
-        no: idx++,
+        no: noVal ?? idx++,
         act_type: r.act_type ?? null,
         reg_no: r.reg_no ?? null,
         opr: r.opr ?? null,

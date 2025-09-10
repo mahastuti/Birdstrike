@@ -50,6 +50,7 @@ model BirdStrike {
   updatedAt           DateTime  @updatedAt
   deletedAt           DateTime?
   jenis_pesawat       String?
+  titik               String?
 
   @@map("bird_strike")
 }

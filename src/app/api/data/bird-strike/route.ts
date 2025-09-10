@@ -49,16 +49,13 @@ export async function GET(request: NextRequest) {
       ]) {
         orFilters.push(like(k));
       }
-      // bigint id
       if (/^\d+$/.test(s)) {
         try { orFilters.push({ id: BigInt(s) }); } catch {}
       }
-      // date YYYY-MM-DD
       if (/^\d{4}-\d{2}-\d{2}$/.test(s)) {
         const d = new Date(s);
         if (!Number.isNaN(d.getTime())) orFilters.push({ tanggal: d });
       }
-      // time HH:MM
       if (/^\d{2}:\d{2}$/.test(s)) {
         const t = new Date(`1970-01-01T${s}:00.000Z`);
         if (!Number.isNaN(t.getTime())) orFilters.push({ jam: t });
@@ -70,42 +67,57 @@ export async function GET(request: NextRequest) {
       ...(search && { OR: orFilters })
     };
 
-    const [data, total] = await Promise.all([
-      prisma.birdStrike.findMany({
-        where,
-        orderBy,
-        skip,
-        take: limit,
-      }),
+    const [rows, total] = await Promise.all([
+      prisma.birdStrike.findMany({ where, orderBy, skip, take: limit }),
       prisma.birdStrike.count({ where })
     ]);
+
+    const DOC_BASE = 'https://odjhvlqvbnqrjlowjywq.supabase.co/storage/v1/object/public/bird-strike/';
+    const ymdLocal = (d: Date): string => {
+      const yyyy = d.getFullYear();
+      const mm = String(d.getMonth() + 1).padStart(2, '0');
+      const dd = String(d.getDate()).padStart(2, '0');
+      return `${yyyy}${mm}${dd}`;
+    };
+    const ymdUTC = (d: Date): string => {
+      const yyyy = d.getUTCFullYear();
+      const mm = String(d.getUTCMonth() + 1).padStart(2, '0');
+      const dd = String(d.getUTCDate()).padStart(2, '0');
+      return `${yyyy}${mm}${dd}`;
+    };
+    const pickExistingUrl = async (d: Date): Promise<string | null> => {
+      const candidates: string[] = [];
+      const l = ymdLocal(d); const u = ymdUTC(d);
+      for (const base of [l, u]) {
+        for (const ext of ['png','jpg','jpeg']) candidates.push(`${DOC_BASE}${base}.${ext}`);
+      }
+      for (const url of candidates) {
+        try { const res = await fetch(url, { method: 'HEAD', cache: 'no-store' }); if (res.ok) return url; } catch {}
+      }
+      return null;
+    };
+
+    const enriched: typeof rows = [] as any;
+    for (const r of rows) {
+      if ((!r.dokumentasi || r.dokumentasi === '') && r.tanggal) {
+        const url = await pickExistingUrl(r.tanggal as Date);
+        enriched.push(url ? { ...r, dokumentasi: url } : r);
+      } else { enriched.push(r); }
+    }
 
     const serialize = (value: unknown): unknown => {
       if (value === null || value === undefined) return value;
       if (typeof value === 'bigint') return value.toString();
       if (value instanceof Date) return value.toISOString();
       if (Array.isArray(value)) return value.map(serialize);
-      if (typeof value === 'object') {
-        const out: Record<string, unknown> = {};
-        for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
-          out[k] = serialize(v);
-        }
-        return out;
-      }
+      if (typeof value === 'object') { const out: Record<string, unknown> = {}; for (const [k, v] of Object.entries(value as Record<string, unknown>)) { out[k] = serialize(v); } return out; }
       return value;
     };
 
-    const safeData = serialize(data);
-
     return NextResponse.json({
       success: true,
-      data: safeData,
-      pagination: {
-        page,
-        limit,
-        total,
-        pages: Math.ceil(total / limit)
-      }
+      data: serialize(enriched),
+      pagination: { page, limit, total, pages: Math.ceil(total / limit) }
     });
   } catch (error) {
     console.error('Error fetching bird strike data:', error);
@@ -214,6 +226,15 @@ export async function PUT(request: NextRequest) {
     if ('jenis_pesawat' in b) data.jenis_pesawat = b.jenis_pesawat as string | null;
     if ('titik' in b) data.titik = b.titik as string | null;
 
+    // If dokumentasi is being cleared or not provided, set default URL from tanggal
+    if ((!('dokumentasi' in b) || data.dokumentasi === null) && ('tanggal' in b) && data.tanggal) {
+      const d = data.tanggal as Date;
+      const y = d.getUTCFullYear();
+      const m = String(d.getUTCMonth() + 1).padStart(2, '0');
+      const da = String(d.getUTCDate()).padStart(2, '0');
+      data.dokumentasi = `https://odjhvlqvbnqrjlowjywq.supabase.co/storage/v1/object/public/bird-strike/${y}${m}${da}.png`;
+    }
+
     const updated = await prisma.birdStrike.update({ where: { id: BigInt(id) }, data });
 
     const serialize = (value: unknown): unknown => {
@@ -228,6 +249,64 @@ export async function PUT(request: NextRequest) {
       }
       return value;
     };
+
+    try {
+      const since = new Date('2025-01-01T00:00:00.000Z');
+      const fase = (updated.fase || '').toLowerCase();
+      const kategori = (updated.kategori_kejadian || '').toLowerCase();
+      const remark = (updated.remark || '').toLowerCase();
+      const eligible = (!!updated.tanggal && updated.tanggal >= since) &&
+        (kategori.includes('bird strike')) &&
+        (remark.includes('terkonfirmasi')) &&
+        (fase.includes('landing') || fase.includes('take off') || fase.includes('take-off'));
+      if (eligible) {
+        const normTitik = (s: string | null | undefined) => {
+          if (!s) return null;
+          const m = String(s).match(/-?\d+(?:[\.,]\d+)?/);
+          if (!m) return null;
+          const f = parseFloat(m[0].replace(',', '.'));
+          if (!Number.isFinite(f)) return null;
+          return Math.round(f);
+        };
+        const tInt = normTitik(updated.titik || '');
+        if (tInt != null) {
+          const candidates = [String(updated.titik || ''), String(tInt), `${tInt}.0`, `${tInt}.00`, `${tInt},0`, `${tInt},00`];
+          const loc = await prisma.burung_bio.findFirst({ where: { OR: candidates.map(c => ({ titik: c })), longitude: { not: null }, latitude: { not: null } }, orderBy: { tanggal: 'desc' } });
+          const hour = updated.jam ? new Date(updated.jam).getUTCHours() : 12;
+          const waktu = updated.waktu || (hour !== null ? (hour >= 0 && hour <= 3 ? 'Dini Hari' : hour <= 8 ? 'Pagi' : hour <= 13 ? 'Siang' : hour <= 18 ? 'Sore' : 'Malam') : '');
+          let cuaca: string | null = null;
+          if (loc && updated.tanggal) {
+            try {
+              const dateStr = updated.tanggal.toISOString().slice(0, 10);
+              const url = new URL('https://archive-api.open-meteo.com/v1/era5');
+              url.searchParams.set('latitude', String(parseFloat(String(loc.latitude))));
+              url.searchParams.set('longitude', String(parseFloat(String(loc.longitude))));
+              url.searchParams.set('start_date', dateStr);
+              url.searchParams.set('end_date', dateStr);
+              url.searchParams.set('hourly', 'precipitation,cloudcover');
+              url.searchParams.set('timezone', 'Asia/Jakarta');
+              const res = await fetch(url.toString(), { cache: 'no-store' });
+              if (res.ok) {
+                const json = await res.json();
+                const times: string[] = json?.hourly?.time || [];
+                const prec: number[] = json?.hourly?.precipitation || [];
+                const cloud: number[] = json?.hourly?.cloudcover || [];
+                let idx = times.findIndex((t: string) => t === `${dateStr}T${String(hour).padStart(2,'0')}:00`);
+                if (idx >= 0) {
+                  const p = Number(prec[idx] ?? 0);
+                  const c = Number(cloud[idx] ?? 0);
+                  if (p > 0.2) cuaca = 'Hujan'; else if (c >= 70) cuaca = 'Berawan'; else if (c >= 30) cuaca = 'Cerah Berawan'; else cuaca = 'Cerah';
+                }
+              }
+            } catch {}
+          }
+          const exists = await prisma.model.findFirst({ where: { tanggal: updated.tanggal ?? undefined, titik: BigInt(tInt) } });
+          if (!exists) {
+            await prisma.model.create({ data: { tanggal: updated.tanggal!, jam: updated.jam ?? null, waktu, cuaca, jumlah_burung_pada_titik_x: null, titik: BigInt(tInt), fase: updated.fase ?? null, strike: '1' } });
+          }
+        }
+      }
+    } catch (e) { console.error('Auto-modeling after update error:', e); }
 
     return NextResponse.json({ success: true, data: serialize(updated) });
   } catch (error) {

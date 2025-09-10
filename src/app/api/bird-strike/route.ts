@@ -1,6 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 
+const waktuFromHour = (hour: number): string => {
+  if (hour >= 0 && hour <= 3) return 'Dini Hari';
+  if (hour > 3 && hour <= 8) return 'Pagi';
+  if (hour > 8 && hour <= 13) return 'Siang';
+  if (hour > 13 && hour <= 18) return 'Sore';
+  return 'Malam';
+};
+
 function serialize(value: unknown): unknown {
   if (value === null || value === undefined) return value;
   if (typeof value === 'bigint') return value.toString();
@@ -54,6 +62,7 @@ export async function POST(request: NextRequest) {
         deskripsi: getStr('deskripsi'),
         dokumentasi: getStr('dokumentasi') || await getFileB64('dokumentasi') || await getFileB64('dokumentasi_form'),
         jenis_pesawat: getStr('jenis_pesawat'),
+        titik: getStr('titik'),
       };
     } else {
       payload = await request.json();
@@ -61,11 +70,23 @@ export async function POST(request: NextRequest) {
 
     const data = payload as Record<string, unknown>;
 
+    const jamDate = data.jam ? new Date(`1970-01-01T${String(data.jam)}:00.000Z`) : null;
+    const waktuAuto = jamDate ? waktuFromHour(jamDate.getUTCHours()) : null;
+
+    const tanggalDate = data.tanggal ? new Date(String(data.tanggal)) : null;
+    const defaultDoc = (() => {
+      if (!tanggalDate) return null;
+      const y = tanggalDate.getUTCFullYear();
+      const m = String(tanggalDate.getUTCMonth() + 1).padStart(2, '0');
+      const d = String(tanggalDate.getUTCDate()).padStart(2, '0');
+      return `https://odjhvlqvbnqrjlowjywq.supabase.co/storage/v1/object/public/bird-strike/${y}${m}${d}.png`;
+    })();
+
     const created = await prisma.birdStrike.create({
       data: {
-        tanggal: data.tanggal ? new Date(String(data.tanggal)) : null,
-        jam: data.jam ? new Date(`1970-01-01T${String(data.jam)}:00.000Z`) : null,
-        waktu: (data.waktu as string) ?? null,
+        tanggal: tanggalDate,
+        jam: jamDate,
+        waktu: (data.waktu as string) ?? waktuAuto,
         fase: (data.fase as string) ?? null,
         lokasi_perimeter: (data.lokasi_perimeter as string) ?? null,
         kategori_kejadian: (data.kategori_kejadian as string) ?? null,
@@ -78,10 +99,77 @@ export async function POST(request: NextRequest) {
         tindakan_perbaikan: (data.tindakan_perbaikan as string) ?? null,
         sumber_informasi: (data.sumber_informasi as string) ?? null,
         deskripsi: (data.deskripsi as string) ?? null,
-        dokumentasi: (data.dokumentasi as string) ?? null,
+        dokumentasi: (data.dokumentasi as string) ?? defaultDoc,
         jenis_pesawat: (data.jenis_pesawat as string) ?? null,
+        titik: (data.titik as string) ?? null,
       },
     });
+
+    // Auto-generate modeling row when criteria met
+    try {
+      const since = new Date('2025-01-01T00:00:00.000Z');
+      const fase = (created.fase || '').toLowerCase();
+      const kategori = (created.kategori_kejadian || '').toLowerCase();
+      const remark = (created.remark || '').toLowerCase();
+      const eligible = (!!created.tanggal && created.tanggal >= since) &&
+        (kategori.includes('bird strike')) &&
+        (remark.includes('terkonfirmasi')) &&
+        (fase.includes('landing') || fase.includes('take off') || fase.includes('take-off'));
+
+      if (eligible) {
+        const normTitik = (s: string | null | undefined) => {
+          if (!s) return null;
+          const m = String(s).match(/-?\d+(?:[\.,]\d+)?/);
+          if (!m) return null;
+          const f = parseFloat(m[0].replace(',', '.'));
+          if (!Number.isFinite(f)) return null;
+          return Math.round(f);
+        };
+        const tInt = normTitik(created.titik || '')
+        if (tInt != null) {
+          const candidates = [String(created.titik || ''), String(tInt), `${tInt}.0`, `${tInt}.00`, `${tInt},0`, `${tInt},00`];
+          const loc = await prisma.burung_bio.findFirst({
+            where: { OR: candidates.map(c => ({ titik: c })), longitude: { not: null }, latitude: { not: null } },
+            orderBy: { tanggal: 'desc' }
+          });
+
+          const hour = created.jam ? new Date(created.jam).getUTCHours() : 12;
+          const waktu = created.waktu || waktuFromHour(hour);
+
+          let cuaca: string | null = null;
+          if (loc && created.tanggal) {
+            try {
+              const dateStr = created.tanggal.toISOString().slice(0, 10);
+              const url = new URL('https://archive-api.open-meteo.com/v1/era5');
+              url.searchParams.set('latitude', String(parseFloat(String(loc.latitude))));
+              url.searchParams.set('longitude', String(parseFloat(String(loc.longitude))));
+              url.searchParams.set('start_date', dateStr);
+              url.searchParams.set('end_date', dateStr);
+              url.searchParams.set('hourly', 'precipitation,cloudcover');
+              url.searchParams.set('timezone', 'Asia/Jakarta');
+              const res = await fetch(url.toString(), { cache: 'no-store' });
+              if (res.ok) {
+                const json = await res.json();
+                const times: string[] = json?.hourly?.time || [];
+                const prec: number[] = json?.hourly?.precipitation || [];
+                const cloud: number[] = json?.hourly?.cloudcover || [];
+                let idx = times.findIndex((t: string) => t === `${dateStr}T${String(hour).padStart(2,'0')}:00`);
+                if (idx >= 0) {
+                  const p = Number(prec[idx] ?? 0);
+                  const c = Number(cloud[idx] ?? 0);
+                  if (p > 0.2) cuaca = 'Hujan'; else if (c >= 70) cuaca = 'Berawan'; else if (c >= 30) cuaca = 'Cerah Berawan'; else cuaca = 'Cerah';
+                }
+              }
+            } catch {}
+          }
+
+          const exists = await prisma.model.findFirst({ where: { tanggal: created.tanggal ?? undefined, titik: BigInt(tInt) } });
+          if (!exists) {
+            await prisma.model.create({ data: { tanggal: created.tanggal!, jam: created.jam ?? null, waktu, cuaca, jumlah_burung_pada_titik_x: null, titik: BigInt(tInt), fase: created.fase ?? null, strike: '1' } });
+          }
+        }
+      }
+    } catch (e) { console.error('Auto-modeling error:', e); }
 
     return NextResponse.json(
       { success: true, message: 'berhasil input', data: serialize(created) },

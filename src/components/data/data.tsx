@@ -92,17 +92,7 @@ export default function Data() {
                 <DataTable dataType="traffic-flight" exportScope={exportScope} />
               )}
               {selectedDataType === 'modeling' && (
-                <div className="bg-gray-100 border-2 border-gray-300 rounded-lg p-8 text-center">
-                  <h3 className="text-lg font-medium text-gray-700 mb-4">Modeling Data</h3>
-                  <p className="text-gray-600">Modeling analysis and predictions will be displayed here.</p>
-                  <div className="mt-6">
-                    <iframe
-                      src="https://docs.google.com/spreadsheets/d/e/2PACX-1vSDMioGHSBvMY2E2QvVTik05l8A5higkD2hH5NZGc8y71T1rfyunKTsNsxS2W7JH2-t97Hnm572CaZq/pubhtml?gid=1761942450&single=true&widget=true&headers=false"
-                      className="w-full h-96 border-0 rounded"
-                      title="Modeling Data"
-                    />
-                  </div>
-                </div>
+                <DataTable dataType="modeling" exportScope={exportScope} />
               )}
             </div>
           </div>

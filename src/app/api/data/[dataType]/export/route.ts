@@ -71,13 +71,26 @@ export async function GET(request: NextRequest, context: { params: Promise<{ dat
         rows = rows.slice(start, start + limitParam);
       }
 
+      const DOC_BASE = 'https://odjhvlqvbnqrjlowjywq.supabase.co/storage/v1/object/public/bird-strike/';
+      const toYmd = (d: Date | string | null | undefined): string | null => {
+        if (!d) return null;
+        const dd = d instanceof Date ? d : new Date(String(d));
+        if (Number.isNaN(dd.getTime())) return null;
+        const yyyy = dd.getFullYear();
+        const mm = String(dd.getMonth() + 1).padStart(2, '0');
+        const ddp = String(dd.getDate()).padStart(2, '0');
+        return `${yyyy}${mm}${ddp}`;
+      };
       const headers = [
         'tanggal','jam','waktu','fase','lokasi_perimeter','kategori_kejadian','airline','runway_use','komponen_pesawat','dampak_pada_pesawat','kondisi_kerusakan','tindakan_perbaikan','sumber_informasi','remark','deskripsi','dokumentasi','jenis_pesawat'
       ];
       const csvRows = [headers.join(',')];
       for (const r of rows) {
+        const obj = r as unknown as Record<string, unknown>;
+        const ymd = toYmd(obj['tanggal'] as unknown as Date);
+        const doc = obj['dokumentasi'] ?? (ymd ? `${DOC_BASE}${ymd}.png` : '');
         const rowVals = headers.map((h) => {
-          const v = (r as unknown as Record<string, unknown>)[h];
+          const v = h === 'dokumentasi' ? doc : obj[h];
           if (v instanceof Date && (h === 'tanggal' || h === 'jam')) return toCsvValue(v.toISOString());
           return toCsvValue(v);
         });
@@ -133,6 +146,50 @@ export async function GET(request: NextRequest, context: { params: Promise<{ dat
         csvRows.push(rowVals.join(','));
       }
       return buildResponse(csvRows.join('\n'), `bird-species_all_${timestamp}.csv`);
+    }
+
+    if (dataType === 'modeling') {
+      const allowedSort = new Set(['id','tanggal','jam','waktu','cuaca','jumlah_burung_pada_titik_x','titik','fase','strike']);
+      const sortBy = allowedSort.has(sortByParam) ? sortByParam : 'tanggal';
+      const orderBy = { [sortBy]: sortOrderParam } as Record<string, 'asc' | 'desc'>;
+
+      const orFilters: Record<string, unknown>[] = [];
+      if (search) {
+        const s = search;
+        const like = (key: string) => ({ [key]: { contains: s, mode: 'insensitive' as const } });
+        for (const k of ['waktu','cuaca','fase','strike']) {
+          orFilters.push(like(k));
+        }
+        if (/^\d+$/.test(s)) {
+          try { orFilters.push({ id: BigInt(s) }); } catch {}
+        }
+        if (/^\d{4}-\d{2}-\d{2}$/.test(s)) {
+          const d = new Date(s); if (!Number.isNaN(d.getTime())) orFilters.push({ tanggal: d });
+        }
+        if (/^\d{2}:\d{2}$/.test(s)) {
+          const t = new Date(`1970-01-01T${s}:00.000Z`); if (!Number.isNaN(t.getTime())) orFilters.push({ jam: t });
+        }
+      }
+
+      const where = search ? { OR: orFilters } : {};
+
+      let rows = await prisma.model.findMany({ where, orderBy });
+      if (Number.isFinite(pageParam) && Number.isFinite(limitParam) && pageParam > 0 && limitParam > 0) {
+        const start = (pageParam - 1) * limitParam;
+        rows = rows.slice(start, start + limitParam);
+      }
+
+      const headers = ['tanggal','jam','waktu','cuaca','jumlah_burung_pada_titik_x','titik','fase','strike'];
+      const csvRows = [headers.join(',')];
+      for (const r of rows) {
+        const rowVals = headers.map((h) => {
+          const v = (r as unknown as Record<string, unknown>)[h];
+          if (v instanceof Date && (h === 'tanggal' || h === 'jam')) return toCsvValue(v.toISOString());
+          return toCsvValue(v);
+        });
+        csvRows.push(rowVals.join(','));
+      }
+      return buildResponse(csvRows.join('\n'), `modeling_all_${timestamp}.csv`);
     }
 
     if (dataType === 'traffic-flight') {

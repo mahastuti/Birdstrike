@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { Trash2, RotateCcw, Download, ChevronLeft, ChevronRight, Pencil } from "lucide-react";
 
 interface DataTableProps {
-  dataType: 'bird-strike' | 'bird-species' | 'traffic-flight';
+  dataType: 'bird-strike' | 'bird-species' | 'traffic-flight' | 'modeling';
   exportScope?: 'all' | 'filtered';
 }
 
@@ -35,7 +35,7 @@ export default function DataTable({ dataType, exportScope = 'all' }: DataTablePr
   });
   const [message, setMessage] = useState('');
 
-  const [sortBy, setSortBy] = useState<string>(dataType === 'traffic-flight' ? 'no' : '');
+  const [sortBy, setSortBy] = useState<string>(dataType === 'traffic-flight' ? 'no' : dataType === 'modeling' ? 'tanggal' : '');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>(dataType === 'traffic-flight' ? SortDirection.Asc : SortDirection.Desc);
 
   const [bulan, setBulan] = useState<string>('');
@@ -179,6 +179,7 @@ export default function DataTable({ dataType, exportScope = 'all' }: DataTablePr
           { key: 'waktu', label: 'Waktu' },
           { key: 'fase', label: 'Fase' },
           { key: 'lokasi_perimeter', label: 'Lokasi Perimeter' },
+          { key: 'titik', label: 'Titik' },
           { key: 'kategori_kejadian', label: 'Kategori Kejadian' },
           { key: 'airline', label: 'Airline' },
           { key: 'runway_use', label: 'Runway Use' },
@@ -207,6 +208,17 @@ export default function DataTable({ dataType, exportScope = 'all' }: DataTablePr
           { key: 'jumlah_burung', label: 'Jumlah Burung' },
           { key: 'keterangan', label: 'Keterangan' },
           { key: 'dokumentasi', label: 'Dokumentasi' }
+        ];
+      case 'modeling':
+        return [
+          { key: 'tanggal', label: 'Tanggal' },
+          { key: 'jam', label: 'Jam' },
+          { key: 'waktu', label: 'Waktu' },
+          { key: 'cuaca', label: 'Cuaca' },
+          { key: 'jumlah_burung_pada_titik_x', label: 'Jumlah Burung pada Titik X' },
+          { key: 'titik', label: 'Titik' },
+          { key: 'fase', label: 'Fase' },
+          { key: 'strike', label: 'Strike' },
         ];
       case 'traffic-flight':
         return [
@@ -368,7 +380,7 @@ export default function DataTable({ dataType, exportScope = 'all' }: DataTablePr
             </select>
             <span className="text-sm">entries</span>
           </div>
-          {dataType !== 'traffic-flight' && (
+          {(dataType === 'bird-strike' || dataType === 'bird-species') && (
             <label className="flex items-center gap-2 text-sm">
               <input type="checkbox" checked={showDeleted} onChange={(e) => setShowDeleted(e.target.checked)} className="rounded" />
               Show Deleted
@@ -443,7 +455,9 @@ export default function DataTable({ dataType, exportScope = 'all' }: DataTablePr
                   </th>
                 );
               })}
-              <th className="border border-gray-300 px-4 py-2 text-center text-sm font-medium text-gray-700 w-40">Actions</th>
+              {dataType !== 'modeling' && (
+                <th className="border border-gray-300 px-4 py-2 text-center text-sm font-medium text-gray-700 w-40">Actions</th>
+              )}
             </tr>
           </thead>
           <tbody>
@@ -485,6 +499,7 @@ export default function DataTable({ dataType, exportScope = 'all' }: DataTablePr
                       <td key={column.key} className="border border-gray-300 px-4 py-2 text-sm">{formatValue(val, column.key)}</td>
                     );
                   })}
+                  {dataType !== 'modeling' && (
                   <td className="border border-gray-300 px-4 py-2 text-center">
                     <div className="flex justify-center gap-2">
                       <button onClick={() => openEdit(row)} className="bg-yellow-500 hover:bg-yellow-600 text-white p-1 rounded text-xs flex items-center gap-1" title="Edit">
@@ -504,6 +519,7 @@ export default function DataTable({ dataType, exportScope = 'all' }: DataTablePr
                       )}
                     </div>
                   </td>
+                  )}
                 </tr>
               ))
             )}

@@ -78,7 +78,7 @@ export default function Dashboard() {
               <div className="p-2 flex justify-center ">
                 <iframe
                   title="Looker Studio Dashboard"
-                  src="https://lookerstudio.google.com/embed/reporting/527a0a62-796f-4889-85e2-14c548a217b6/page/p_e6wi3mstud"
+                  src="https://lookerstudio.google.com/embed/reporting/527a0a62-796f-4889-85e2-14c548a217b6/page/bpxSF"
                   className="w-full max-w-4xl h-[750px] border-0 rounded "
                   loading="lazy"
                   allowFullScreen

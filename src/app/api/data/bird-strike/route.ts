@@ -21,6 +21,7 @@ type BirdStrikeUpdate = Partial<{
   deskripsi: string | null;
   dokumentasi: string | null;
   jenis_pesawat: string | null;
+  titik: string | null;
 }>;
 
 export async function GET(request: NextRequest) {
@@ -34,7 +35,7 @@ export async function GET(request: NextRequest) {
     const sortBy = (searchParams.get('sortBy') || 'createdAt');
     const sortOrder: SortOrder = (searchParams.get('sortOrder') === 'asc' ? 'asc' : 'desc');
 
-    const allowedSort = new Set(['id','tanggal','jam','waktu','fase','lokasi_perimeter','kategori_kejadian','airline','runway_use','komponen_pesawat','dampak_pada_pesawat','kondisi_kerusakan','tindakan_perbaikan','sumber_informasi','remark','deskripsi','jenis_pesawat','createdAt']);
+    const allowedSort = new Set(['id','tanggal','jam','waktu','fase','lokasi_perimeter','titik','kategori_kejadian','airline','runway_use','komponen_pesawat','dampak_pada_pesawat','kondisi_kerusakan','tindakan_perbaikan','sumber_informasi','remark','deskripsi','jenis_pesawat','createdAt']);
     const orderBy: Record<string, SortOrder> = allowedSort.has(sortBy) ? { [sortBy]: sortOrder } : { createdAt: 'desc' };
 
     const skip = (page - 1) * limit;
@@ -44,7 +45,7 @@ export async function GET(request: NextRequest) {
       const s = search;
       const like = (key: string) => ({ [key]: { contains: s, mode: 'insensitive' as const } });
       for (const k of [
-        'waktu','fase','lokasi_perimeter','kategori_kejadian','remark','airline','runway_use','komponen_pesawat','dampak_pada_pesawat','kondisi_kerusakan','tindakan_perbaikan','sumber_informasi','deskripsi','dokumentasi','jenis_pesawat'
+        'waktu','fase','lokasi_perimeter','titik','kategori_kejadian','remark','airline','runway_use','komponen_pesawat','dampak_pada_pesawat','kondisi_kerusakan','tindakan_perbaikan','sumber_informasi','deskripsi','dokumentasi','jenis_pesawat'
       ]) {
         orFilters.push(like(k));
       }
@@ -211,6 +212,7 @@ export async function PUT(request: NextRequest) {
     if ('deskripsi' in b) data.deskripsi = b.deskripsi as string | null;
     if ('dokumentasi' in b) data.dokumentasi = (b as Record<string, unknown>).dokumentasi as string | null ?? null;
     if ('jenis_pesawat' in b) data.jenis_pesawat = b.jenis_pesawat as string | null;
+    if ('titik' in b) data.titik = b.titik as string | null;
 
     const updated = await prisma.birdStrike.update({ where: { id: BigInt(id) }, data });
 

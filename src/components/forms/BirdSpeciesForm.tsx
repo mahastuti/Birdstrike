@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import type { FormEvent } from "react";
 
 interface BirdSpeciesFormData {
@@ -38,6 +38,21 @@ export default function BirdSpeciesForm({ onSubmit, isSubmitting = false }: Bird
     keterangan: '',
     dokumentasi: '',
   });
+
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const [dateError, setDateError] = useState<string>('');
+  const formatDate = (d: Date) => {
+    const yyyy = d.getFullYear();
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    const dd = String(d.getDate()).padStart(2, '0');
+    return `${yyyy}-${mm}-${dd}`;
+  };
+  const today = new Date();
+  const baseDate = formatDate(today);
+  const maxDateObj = new Date(today);
+  maxDateObj.setDate(today.getDate() + 16);
+  const maxDate = formatDate(maxDateObj);
+  const isWithinFuture16Days = (s: string) => !!s && s <= maxDate;
 
   // Lokasi yang diizinkan berdasarkan titik (khusus 1-4)
   const getAllowedLokasi = (titik: string): string[] => {
@@ -163,6 +178,22 @@ export default function BirdSpeciesForm({ onSubmit, isSubmitting = false }: Bird
     fetchWeather();
   }, [latitude, longitude, tanggal, jam]);
 
+  useEffect(() => {
+    try {
+      const f = fileInputRef.current?.files?.[0];
+      if (!f || !formData.tanggal) return;
+      const m = f.name.match(/^(\d{8})/);
+      if (!m) return;
+      const d = new Date(formData.tanggal);
+      const ymd = `${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}`;
+      if (m[1] !== ymd) {
+        alert(`Nama file dokumentasi harus sama dengan tanggal yang dipilih (${ymd})`);
+        setFormData(prev => ({ ...prev, dokumentasi: '' }));
+        if (fileInputRef.current) fileInputRef.current.value = '';
+      }
+    } catch {}
+  }, [formData.tanggal]);
+
   const normalizeSpaces = (s: string) => s.replace(/\s+/g, ' ').trim();
   const toScientificCase = (s: string) => {
     const words = normalizeSpaces(s).toLowerCase().split(' ');
@@ -263,6 +294,11 @@ export default function BirdSpeciesForm({ onSubmit, isSubmitting = false }: Bird
   };
 
 
+  const clearDokumentasi = () => {
+    setFormData(prev => ({ ...prev, dokumentasi: '' }));
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) {
@@ -272,6 +308,25 @@ export default function BirdSpeciesForm({ onSubmit, isSubmitting = false }: Bird
     const allowed = ['image/png','image/jpeg','application/pdf'];
     if (!allowed.includes(file.type)) {
       alert('Format file harus PNG, JPG/JPEG, atau PDF');
+      e.currentTarget.value = '';
+      return;
+    }
+    const m = file.name.match(/^(\d{8})(-\d+)?\.(png|pdf|jpe?g)$/i);
+    if (!m) {
+      alert('Nama file harus: YYYYMMDD atau YYYYMMDD-1, dengan ekstensi png/pdf/jpg/jpeg. Contoh: 20220929.png atau 20220929-2.jpg');
+      e.currentTarget.value = '';
+      return;
+    }
+    if (!formData.tanggal) {
+      alert('Isi Tanggal terlebih dahulu sebelum memilih file dokumentasi');
+      e.currentTarget.value = '';
+      return;
+    }
+    const fileYmd = m[1];
+    const d = new Date(formData.tanggal);
+    const ymd = `${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}`;
+    if (fileYmd !== ymd) {
+      alert(`Nama file harus sama dengan tanggal yang dipilih (${ymd})`);
       e.currentTarget.value = '';
       return;
     }
@@ -375,10 +430,21 @@ export default function BirdSpeciesForm({ onSubmit, isSubmitting = false }: Bird
                 type="date"
                 name="tanggal"
                 value={formData.tanggal}
-                onChange={handleInputChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                onChange={(e) => {
+                  const v = e.target.value;
+                  setFormData(prev => ({ ...prev, tanggal: v }));
+                  if (v && !isWithinFuture16Days(v)) {
+                    setDateError(`Tanggal tidak boleh melebihi 16 hari dari hari ini (${maxDate})`);
+                  } else {
+                    setDateError('');
+                  }
+                }}
+                className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 ${dateError ? 'border-red-500 focus:ring-red-500' : 'border-gray-300 focus:ring-blue-500'} focus:border-transparent`}
                 required
+                max={maxDate}
+                aria-invalid={!!dateError}
               />
+              {dateError && <p className="text-red-600 text-sm mt-1">{dateError}</p>}
             </div>
 
             <div className="form-group">
@@ -487,19 +553,28 @@ export default function BirdSpeciesForm({ onSubmit, isSubmitting = false }: Bird
           </div>
 
           <div className="form-group">
-            <label className="block text-sm font-medium text-gray-700 mb-1">Dokumentasi (png, jpg, jpeg, pdf)</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Dokumentasi (png, pdf, jpeg, jpg)</label>
+            <ul className="text-xs text-gray-600 mb-2 list-disc pl-6 space-y-1">
+              <li>Rename file dengan format: YYYYMMDD. Contoh: 20220929</li>
+              <li>Jika satu tanggal ada 2+ file: tambahkan -1, -2, dst. Contoh: 20220929-1, 20220929-2</li>
+              <li>Harus sama dengan tanggal yang dipilih</li>
+            </ul>
             <input
               type="file"
-              accept=".png,.jpg,.jpeg,.pdf,application/pdf"
+              accept=".png,.pdf,.jpeg,.jpg"
               onChange={handleFileChange}
+              ref={fileInputRef}
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent file:bg-gray-700 file:text-white file:hover:bg-gray-800 file:border-0 file:rounded-md file:px-4 file:py-2 file:mr-3 bg-gray-100"
             />
+            <div className="mt-2">
+              <button type="button" onClick={clearDokumentasi} className="px-4 py-2 rounded-md text-red-500 hover:bg-gray-100">Hapus Dokumentasi</button>
+            </div>
           </div>
 
           <div className="flex justify-center pt-4">
             <button
               type="submit"
-              disabled={isSubmitting}
+              disabled={isSubmitting || !!dateError}
               className={`px-8 py-3 rounded-lg font-medium transition-colors ${isSubmitting
                 ? 'bg-gray-400 text-white cursor-not-allowed'
                 : 'bg-gradient-to-r from-[#72BB34] to-[#40A3DC] text-white hover:opacity-90'

@@ -107,7 +107,7 @@ export async function GET(request: NextRequest) {
     };
 
     const enriched = data.map((r) => {
-      if ((!r as any)?.waktu && r.jam) {
+      if (!(r as any)?.waktu && r.jam) {
         const hour = (r.jam as Date).getUTCHours();
         return { ...r, waktu: waktuFromHour(hour) } as typeof r;
       }

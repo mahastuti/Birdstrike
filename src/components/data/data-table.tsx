@@ -674,7 +674,52 @@ export default function DataTable({ dataType, exportScope = 'all' }: DataTablePr
                   ) : col.key === 'jam' ? (
                     <input type="time" value={editValues[col.key] || ''} onChange={e => setEditValues(v => ({ ...v, [col.key]: e.target.value }))} className="w-full border border-gray-300 rounded px-3 py-2" />
                   ) : col.key === 'dokumentasi' ? (
-                    <textarea value={editValues[col.key] || ''} onChange={e => setEditValues(v => ({ ...v, [col.key]: e.target.value }))} className="w-full border border-gray-300 rounded px-3 py-2 h-24" />
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-3">
+                        {(() => {
+                          const raw = String(editValues[col.key] || '');
+                          const val = raw.trim();
+                          const lower = val.toLowerCase();
+                          const isDataImg = lower.startsWith('data:image/');
+                          const hasImgExt = /(\.png|\.jpe?g|\.gif|\.webp|\.bmp|\.svg)(\?.*)?$/.test(lower);
+                          const isPdf = lower.startsWith('data:application/pdf') || /\.pdf(\?.*)?$/.test(lower);
+                          const mightBeImageUrl = /^https?:\/\//.test(val);
+                          const showAsImage = (isDataImg || hasImgExt || mightBeImageUrl) && !isPdf;
+                          const Thumb = () => {
+                            const [failed, setFailed] = useState(false);
+                            if (!val || failed || !showAsImage) return null;
+                            return (
+                              <button type="button" onClick={() => openPreview(val, 'image')} className="border border-gray-300 rounded hover:opacity-90" title="Lihat">
+                                {/* eslint-disable-next-line @next/next/no-img-element */}
+                                <img src={val} alt="Thumbnail" referrerPolicy="no-referrer" className="h-12 w-12 object-cover rounded" onError={() => setFailed(true)} />
+                              </button>
+                            );
+                          };
+                          return <Thumb />;
+                        })()}
+                        <input
+                          id="edit-doc-file"
+                          type="file"
+                          accept=".png,.pdf,.jpeg,.jpg"
+                          onChange={(e) => {
+                            const f = e.target.files && e.target.files[0];
+                            if (!f) return;
+                            const allowed = ['image/png','image/jpeg','application/pdf'];
+                            if (!allowed.includes(f.type)) { alert('Hanya PNG/JPG/PDF'); e.currentTarget.value = ''; return; }
+                            const reader = new FileReader();
+                            reader.onload = () => {
+                              const res = typeof reader.result === 'string' ? reader.result : '';
+                              setEditValues(v => ({ ...v, [col.key]: res }));
+                            };
+                            reader.readAsDataURL(f);
+                          }}
+                          className="hidden"
+                        />
+                        <button type="button" onClick={() => (document.getElementById('edit-doc-file') as HTMLInputElement | null)?.click()} className="px-3 py-2 text-xs rounded border border-gray-300 hover:bg-gray-50">Ganti</button>
+                        <button type="button" onClick={() => setEditValues(v => ({ ...v, [col.key]: '' }))} className="px-3 py-2 text-xs rounded border border-gray-300 hover:bg-gray-50">Hapus</button>
+                      </div>
+                      <textarea value={editValues[col.key] || ''} onChange={e => setEditValues(v => ({ ...v, [col.key]: e.target.value }))} className="w-full border border-gray-300 rounded px-3 py-2 h-24" />
+                    </div>
                   ) : (
                     <input type="text" value={editValues[col.key] ?? ''} onChange={e => setEditValues(v => ({ ...v, [col.key]: e.target.value }))} className="w-full border border-gray-300 rounded px-3 py-2" />
                   )}

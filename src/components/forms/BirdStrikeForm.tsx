@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import type { FormEvent } from "react";
 
 interface BirdStrikeFormData {
@@ -59,11 +59,13 @@ export default function BirdStrikeForm({ onSubmit, isSubmitting = false }: BirdS
     return "Malam";
   };
 
-  const toTitleCase = (s: string): string => s
-    .split(" ")
-    .filter(Boolean)
-    .map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
-    .join(" ");
+  const toTitleCase = (s: string): string =>
+    s.toLowerCase().replace(/\p{L}+/gu, (w) => w.charAt(0).toUpperCase() + w.slice(1));
+
+  const clearDokumentasi = () => {
+    setFormData(prev => ({ ...prev, dokumentasi: "" }));
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -102,9 +104,38 @@ export default function BirdStrikeForm({ onSubmit, isSubmitting = false }: BirdS
   const [airlineChoice, setAirlineChoice] = useState<string>('');
   const [jenisChoice, setJenisChoice] = useState<string>('');
   const [komponenChoice, setKomponenChoice] = useState<string>('');
+  const [dateError, setDateError] = useState<string>('');
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+  const formatDate = (d: Date) => {
+    const yyyy = d.getFullYear();
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    const dd = String(d.getDate()).padStart(2, '0');
+    return `${yyyy}-${mm}-${dd}`;
+  };
+  const today = new Date();
+  const baseDate = formatDate(today);
+  const maxDateObj = new Date(today);
+  maxDateObj.setDate(today.getDate() + 16);
+  const maxDate = formatDate(maxDateObj);
+  const isWithinFuture16Days = (s: string) => !!s && s <= maxDate;
+
+  const allowedTitik = formData.lokasi_perimeter === 'Out'
+    ? ['1','2','3','4']
+    : formData.lokasi_perimeter === 'In'
+      ? ['1','2','3','4','5','6','7','8']
+      : [];
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
+
+    if (formData.tanggal) {
+      if (formData.tanggal > maxDate) {
+        alert(`Tanggal tidak boleh melebihi 16 hari dari hari ini (${maxDate})`);
+        return;
+      }
+    }
+
     if (onSubmit) {
       await onSubmit(formData);
     }
@@ -143,10 +174,23 @@ export default function BirdStrikeForm({ onSubmit, isSubmitting = false }: BirdS
             <input
               type="date"
               value={formData.tanggal}
-              onChange={(e) => setFormData({ ...formData, tanggal: e.target.value })}
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              onChange={(e) => {
+                const v = e.target.value;
+                setFormData({ ...formData, tanggal: v });
+                if (v && !isWithinFuture16Days(v)) {
+                  setDateError(`Tanggal tidak boleh melebihi 16 hari dari hari ini (${maxDate})`);
+                } else {
+                  setDateError('');
+                }
+              }}
+              className={`w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:border-transparent ${dateError ? 'border-red-500 focus:ring-red-500' : 'focus:ring-blue-500'}`}
               required
+              max={maxDate}
+              aria-invalid={!!dateError}
             />
+            {dateError && (
+              <p className="text-red-600 text-sm mt-1">{dateError}</p>
+            )}
           </div>
 
           <div className="input-group">
@@ -181,7 +225,9 @@ export default function BirdStrikeForm({ onSubmit, isSubmitting = false }: BirdS
                 const outPhases = new Set(['Approach', 'Final', 'Short Final']);
                 const inPhases = new Set(['Landing', 'Take Off']);
                 const lokasi = outPhases.has(phase) ? 'Out' : inPhases.has(phase) ? 'In' : '';
-                setFormData({ ...formData, fase: phase, lokasi_perimeter: lokasi });
+                const allowed = lokasi === 'Out' ? ['1','2','3','4'] : lokasi === 'In' ? ['1','2','3','4','5','6','7','8'] : [];
+                const titik = allowed.includes(formData.titik) ? formData.titik : '';
+                setFormData({ ...formData, fase: phase, lokasi_perimeter: lokasi, titik });
               }}
               className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               required
@@ -209,14 +255,18 @@ export default function BirdStrikeForm({ onSubmit, isSubmitting = false }: BirdS
 
           <div className="input-group">
             <label className="block text-sm font-medium text-gray-700 mb-2">Titik</label>
-            <input
-              type="text"
+            <select
               value={formData.titik}
               onChange={(e) => setFormData({ ...formData, titik: e.target.value })}
               className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              placeholder="Contoh: 5 atau 5.00"
               required
-            />
+              disabled={allowedTitik.length === 0}
+            >
+              <option value="">{formData.lokasi_perimeter ? 'Pilih Titik' : 'Pilih fase terlebih dahulu'}</option>
+              {allowedTitik.map((opt) => (
+                <option key={opt} value={opt}>{opt}</option>
+              ))}
+            </select>
           </div>
 
           <div className="input-group">
@@ -276,8 +326,7 @@ export default function BirdStrikeForm({ onSubmit, isSubmitting = false }: BirdS
                 <input
                   type="text"
                   value={formData.airline}
-                  onChange={(e) => setFormData({ ...formData, airline: e.target.value })}
-                  onBlur={(e) => setFormData({ ...formData, airline: toTitleCase(e.target.value) })}
+                  onChange={(e) => setFormData({ ...formData, airline: toTitleCase(e.target.value) })}
                   className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   placeholder="Ketik nama maskapai (otomatis Kapitalisasi)"
                   required
@@ -314,8 +363,7 @@ export default function BirdStrikeForm({ onSubmit, isSubmitting = false }: BirdS
                 <input
                   type="text"
                   value={formData.jenis_pesawat}
-                  onChange={(e) => setFormData({ ...formData, jenis_pesawat: e.target.value })}
-                  onBlur={(e) => setFormData({ ...formData, jenis_pesawat: toTitleCase(e.target.value) })}
+                  onChange={(e) => setFormData({ ...formData, jenis_pesawat: toTitleCase(e.target.value) })}
                   className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   placeholder="Ketik jenis pesawat (otomatis Kapitalisasi)"
                 />
@@ -369,8 +417,7 @@ export default function BirdStrikeForm({ onSubmit, isSubmitting = false }: BirdS
                 <input
                   type="text"
                   value={formData.komponen_pesawat}
-                  onChange={(e) => setFormData({ ...formData, komponen_pesawat: e.target.value })}
-                  onBlur={(e) => setFormData({ ...formData, komponen_pesawat: toTitleCase(e.target.value) })}
+                  onChange={(e) => setFormData({ ...formData, komponen_pesawat: toTitleCase(e.target.value) })}
                   className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   placeholder="Ketik komponen (otomatis Kapitalisasi)"
                   required
@@ -451,14 +498,20 @@ export default function BirdStrikeForm({ onSubmit, isSubmitting = false }: BirdS
             type="file"
             accept=".png,.pdf,.jpeg,.jpg"
             onChange={handleFileChange}
+            ref={fileInputRef}
             className="w-full mt-2 px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent file:bg-gray-700 file:text-white file:hover:bg-gray-800 file:border-0 file:rounded-md file:px-4 file:py-2 file:mr-3 bg-gray-100"
           />
+          <div className="mt-2">
+            <button type="button" onClick={clearDokumentasi} className="px-4 py-2 rounded-md text-red-500 hover:bg-gray-100">
+              Hapus Dokumentasi
+            </button>
+          </div>
         </div>
 
         <div className="flex justify-center pt-6">
           <button
             type="submit"
-            disabled={isSubmitting}
+            disabled={isSubmitting || !!dateError}
             className={`px-8 py-3 font-medium rounded-lg transition-opacity ${isSubmitting
               ? "bg-gray-400 text-white cursor-not-allowed"
               : "bg-gradient-to-r from-[#72BB34] to-[#40A3DC] text-white hover:opacity-90"

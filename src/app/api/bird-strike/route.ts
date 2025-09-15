@@ -24,6 +24,89 @@ type BirdStrikeUpdate = Partial<{
   titik: string | null;
 }>;
 
+export async function POST(request: NextRequest) {
+  try {
+    const ct = request.headers.get('content-type') || '';
+
+    const normalizeSpaces = (s: string | null | undefined) => (s ?? '').replace(/\s+/g, ' ').trim();
+    const toTitleCaseWords = (s: string | null | undefined) => normalizeSpaces(String(s)).toLowerCase().split(' ').map(w => w ? w[0].toUpperCase() + w.slice(1) : '').join(' ');
+
+    let payload: Record<string, unknown> = {};
+    if (ct.includes('multipart/form-data')) {
+      const fd = await request.formData();
+      fd.forEach((v, k) => { if (typeof v === 'string') payload[k] = v; });
+    } else if (ct.includes('application/json')) {
+      payload = await request.json();
+    } else {
+      try { payload = await request.json(); } catch { const fd = await request.formData(); fd.forEach((v, k) => { if (typeof v === 'string') payload[k] = v; }); }
+    }
+
+    const mapWaktu = (time: string | null | undefined): string | null => {
+      if (!time) return null;
+      const hour = Number(String(time).split(':')[0]);
+      if (hour >= 0 && hour <= 3) return 'Dini Hari';
+      if (hour <= 8) return 'Pagi';
+      if (hour <= 13) return 'Siang';
+      if (hour <= 18) return 'Sore';
+      return 'Malam';
+    };
+
+    const outPhases = new Set(['Approach','Final','Short Final']);
+    const inPhases = new Set(['Landing','Take Off','Take-Off']);
+    const fase = String(payload.fase ?? '').trim();
+    const lokasi_perimeter = payload.lokasi_perimeter ? String(payload.lokasi_perimeter) : (outPhases.has(fase) ? 'Out' : inPhases.has(fase) ? 'In' : null);
+
+    const dokumentasi: string | null = (payload as any).dokumentasi ? String((payload as any).dokumentasi) : null;
+
+    const created = await prisma.birdStrike.create({
+      data: {
+        tanggal: payload.tanggal ? new Date(String(payload.tanggal)) : null,
+        jam: payload.jam ? new Date(`1970-01-01T${String(payload.jam)}:00.000Z`) : null,
+        waktu: payload.waktu ? String(payload.waktu) : mapWaktu(String(payload.jam || '')),
+        fase: fase || null,
+        lokasi_perimeter,
+        kategori_kejadian: payload.kategori_kejadian ? String(payload.kategori_kejadian) : null,
+        remark: payload.remark ? String(payload.remark) : null,
+        airline: toTitleCaseWords(String(payload.airline ?? '')) || null,
+        runway_use: payload.runway_use ? String(payload.runway_use) : null,
+        komponen_pesawat: toTitleCaseWords(String(payload.komponen_pesawat ?? '')) || null,
+        dampak_pada_pesawat: payload.dampak_pada_pesawat ? String(payload.dampak_pada_pesawat) : null,
+        kondisi_kerusakan: payload.kondisi_kerusakan ? String(payload.kondisi_kerusakan) : null,
+        tindakan_perbaikan: payload.tindakan_perbaikan ? String(payload.tindakan_perbaikan) : null,
+        sumber_informasi: payload.sumber_informasi ? String(payload.sumber_informasi) : null,
+        deskripsi: payload.deskripsi ? String(payload.deskripsi) : null,
+        dokumentasi: dokumentasi,
+        jenis_pesawat: toTitleCaseWords(String(payload.jenis_pesawat ?? '')) || null,
+        titik: payload.titik ? String(payload.titik) : null,
+      }
+    });
+
+    if ((!dokumentasi || dokumentasi === '') && created.tanggal) {
+      const d = created.tanggal as Date;
+      const y = d.getUTCFullYear();
+      const m = String(d.getUTCMonth() + 1).padStart(2, '0');
+      const da = String(d.getUTCDate()).padStart(2, '0');
+      const url = `https://odjhvlqvbnqrjlowjywq.supabase.co/storage/v1/object/public/bird-strike/${y}${m}${da}.png`;
+      await prisma.birdStrike.update({ where: { id: created.id }, data: { dokumentasi: url } });
+      (created as any).dokumentasi = url;
+    }
+
+    const serialize = (value: unknown): unknown => {
+      if (value === null || value === undefined) return value;
+      if (typeof value === 'bigint') return value.toString();
+      if (value instanceof Date) return value.toISOString();
+      if (Array.isArray(value)) return value.map(serialize);
+      if (typeof value === 'object') { const out: Record<string, unknown> = {}; for (const [k, v] of Object.entries(value as Record<string, unknown>)) { out[k] = serialize(v); } return out; }
+      return value;
+    };
+
+    return NextResponse.json({ success: true, message: 'berhasil input', data: serialize(created) }, { status: 201 });
+  } catch (error) {
+    console.error('Error creating bird strike:', error);
+    return NextResponse.json({ success: false, message: 'Gagal menyimpan data' }, { status: 500 });
+  }
+}
+
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);

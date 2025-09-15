@@ -39,6 +39,12 @@ export async function GET(request: NextRequest) {
 
     const where = search ? { OR: orFilters } : {};
 
+    const total = process.env.DATABASE_URL ? await prisma.model.count({ where }) : 0;
+
+    if (!process.env.DATABASE_URL) {
+      return NextResponse.json({ success: true, data: [], pagination: { page: 1, limit, total: 0, pages: 0 }, pageInfo: { limit, hasMore: false, nextCursor: null } });
+    }
+
     const items = await prisma.model.findMany({
       where,
       orderBy,
@@ -59,9 +65,12 @@ export async function GET(request: NextRequest) {
       return value;
     };
 
-    return NextResponse.json({ success: true, data: serialize(rows), pageInfo: { limit, hasMore, nextCursor } });
+    return NextResponse.json({ success: true, data: serialize(rows), pagination: { page: 1, limit, total, pages: Math.ceil(total / Math.max(1, limit)) }, pageInfo: { limit, hasMore, nextCursor } });
   } catch (error) {
     console.error('Error fetching modeling data:', error);
+    if (!process.env.DATABASE_URL) {
+      return NextResponse.json({ success: true, data: [], pagination: { page: 1, limit: 10, total: 0, pages: 0 }, pageInfo: { limit: 10, hasMore: false, nextCursor: null } });
+    }
     return NextResponse.json({ success: false, message: 'Failed to fetch modeling data' }, { status: 500 });
   }
 }

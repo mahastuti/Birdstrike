@@ -310,6 +310,12 @@ export async function GET(request: NextRequest) {
     }
     const where: Prisma.TrafficFlightWhereInput = andConds.length ? { AND: andConds } : {};
 
+    const total = process.env.DATABASE_URL ? await prisma.trafficFlight.count({ where }) : 0;
+
+    if (!process.env.DATABASE_URL) {
+      return NextResponse.json({ success: true, data: [], pagination: { page: 1, limit, total: 0, pages: 0 }, pageInfo: { limit, hasMore: false, nextCursor: null }, filters: { months: Array.from({ length: 12 }, (_, i) => String(i + 1).padStart(2, '0')), years: [] } });
+    }
+
     const items = await prisma.trafficFlight.findMany({
       where,
       orderBy,
@@ -344,14 +350,19 @@ export async function GET(request: NextRequest) {
       return value;
     };
 
+    const totalAll = process.env.DATABASE_URL ? await prisma.trafficFlight.count() : 0;
     return NextResponse.json({
       success: true,
       data: serialize(rows),
+      pagination: { page: 1, limit, total, totalAll, pages: Math.ceil(total / Math.max(1, limit)) },
       pageInfo: { limit, hasMore, nextCursor },
       filters: { months, years }
     });
   } catch (error) {
     console.error('Error fetching traffic flight data:', error);
+    if (!process.env.DATABASE_URL) {
+      return NextResponse.json({ success: true, data: [], pagination: { page: 1, limit: 10, total: 0, pages: 0 }, pageInfo: { limit: 10, hasMore: false, nextCursor: null }, filters: { months: Array.from({ length: 12 }, (_, i) => String(i + 1).padStart(2, '0')), years: [] } });
+    }
     return NextResponse.json(
       { success: false, message: 'Gagal mengambil data traffic flight', error: error instanceof Error ? error.message : 'Unknown error' },
       { status: 500 }

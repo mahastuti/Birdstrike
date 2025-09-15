@@ -243,7 +243,7 @@ export default function BirdStrikeForm({ onSubmit, isSubmitting = false }: BirdS
             >
               <option value="">Pilih Kategori</option>
               <option value="Strike">Terkonfirmasi</option>
-              <option value="Near Miss">Laporan Hazard</option>
+              <option value="Near Miss">Tidak Terkonfirmasi</option>
             </select>
           </div>
 

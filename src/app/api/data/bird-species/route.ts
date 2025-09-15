@@ -66,6 +66,12 @@ export async function GET(request: NextRequest) {
       ...(search && { OR: orFilters })
     };
 
+    const total = process.env.DATABASE_URL ? await prisma.burung_bio.count({ where }) : 0;
+
+    if (!process.env.DATABASE_URL) {
+      return NextResponse.json({ success: true, data: [], pagination: { page: 1, limit, total: 0, pages: 0 }, pageInfo: { limit, hasMore: false, nextCursor: null } });
+    }
+
     const items = await prisma.burung_bio.findMany({
       where,
       orderBy,
@@ -92,15 +98,36 @@ export async function GET(request: NextRequest) {
       return value;
     };
 
-    const safeData = serialize(data);
+    const waktuFromHour = (hour: number): string => {
+      if (hour >= 0 && hour <= 3) return 'Dini Hari';
+      if (hour > 3 && hour <= 8) return 'Pagi';
+      if (hour > 8 && hour <= 13) return 'Siang';
+      if (hour > 13 && hour <= 18) return 'Sore';
+      return 'Malam';
+    };
 
+    const enriched = data.map((r) => {
+      if ((!r as any)?.waktu && r.jam) {
+        const hour = (r.jam as Date).getUTCHours();
+        return { ...r, waktu: waktuFromHour(hour) } as typeof r;
+      }
+      return r;
+    });
+
+    const safeData = serialize(enriched);
+
+    const totalAll = process.env.DATABASE_URL ? await prisma.burung_bio.count() : 0;
     return NextResponse.json({
       success: true,
       data: safeData,
+      pagination: { page: 1, limit, total, totalAll, pages: Math.ceil(total / Math.max(1, limit)) },
       pageInfo: { limit, hasMore, nextCursor }
     });
   } catch (error) {
     console.error('Error fetching bird species data:', error);
+    if (!process.env.DATABASE_URL) {
+      return NextResponse.json({ success: true, data: [], pagination: { page: 1, limit: 10, total: 0, pages: 0 }, pageInfo: { limit: 10, hasMore: false, nextCursor: null } });
+    }
     return NextResponse.json(
       { success: false, message: 'Failed to fetch data' },
       { status: 500 }

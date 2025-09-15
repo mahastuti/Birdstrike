@@ -33,6 +33,8 @@ export default function DataTable({ dataType, exportScope = 'all' }: DataTablePr
     total: 0,
     pages: 0
   });
+  const [hasMore, setHasMore] = useState(false);
+  const [cursors, setCursors] = useState<Record<number, string | null>>({ 1: null });
   const [message, setMessage] = useState('');
 
   const [sortBy, setSortBy] = useState<string>(dataType === 'traffic-flight' ? 'no' : dataType === 'modeling' ? 'tanggal' : '');
@@ -59,6 +61,8 @@ export default function DataTable({ dataType, exportScope = 'all' }: DataTablePr
         search,
         showDeleted: showDeleted.toString(),
       });
+      const cur = cursors[page] ?? null;
+      if (cur) params.set('cursor', cur);
       if (sortBy) {
         params.set('sortBy', sortBy);
         params.set('sortOrder', sortOrder);
@@ -80,7 +84,11 @@ export default function DataTable({ dataType, exportScope = 'all' }: DataTablePr
       const result = await response.json();
       if (!signal?.aborted && result.success) {
         setData(result.data);
-        setPagination(result.pagination);
+        setPagination(result.pagination ?? { page, limit, total: Array.isArray(result.data) ? ((page - 1) * limit) + result.data.length : 0, pages: 0 });
+        const has = Boolean(result?.pageInfo?.hasMore);
+        setHasMore(has);
+        const next = result?.pageInfo?.nextCursor ?? null;
+        setCursors(prev => ({ ...prev, [page + 1]: next }));
         if (dataType === 'traffic-flight') {
           const months: string[] = result?.filters?.months || Array.from({ length: 12 }, (_, i) => String(i + 1).padStart(2, '0'));
           const years: string[] = result?.filters?.years || [];
@@ -109,6 +117,11 @@ export default function DataTable({ dataType, exportScope = 'all' }: DataTablePr
       clearTimeout(timeoutId);
     };
   }, [fetchData, search]);
+
+  useEffect(() => {
+    setCursors({ 1: null });
+    setPage(1);
+  }, [dataType, search, showDeleted, sortBy, sortOrder, bulan, tahun, limit]);
 
   const handleDelete = async (id: string) => {
     try {
@@ -256,8 +269,13 @@ export default function DataTable({ dataType, exportScope = 'all' }: DataTablePr
         return isNaN(d.getTime()) ? value : d.toLocaleDateString('id-ID');
       }
       if (key === 'jam') {
-        const d = new Date(value);
-        return isNaN(d.getTime()) ? value : d.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', hour12: false });
+        // Keep exactly as stored: support HH:MM, HH.MM, HH-MM, or ISO
+        const s = value.trim();
+        const mm = s.match(/^(\d{1,2})[\.:\-](\d{2})/);
+        if (mm) return `${mm[1].padStart(2,'0')}:${mm[2]}`;
+        if (/^\d{2}:\d{2}$/.test(s)) return s;
+        if (/^\d{4}-\d{2}-\d{2}T/.test(s)) return s.slice(11,16);
+        return s;
       }
       if (/^\d{4}-\d{2}-\d{2}T/.test(value)) {
         const d = new Date(value);
@@ -265,10 +283,46 @@ export default function DataTable({ dataType, exportScope = 'all' }: DataTablePr
       }
       return value;
     }
+    if (value instanceof Date && key === 'jam') {
+      // Date object from Time column: read UTC parts, avoid TZ shift
+      const h = String((value as Date).getUTCHours()).padStart(2,'0');
+      const m = String((value as Date).getUTCMinutes()).padStart(2,'0');
+      return `${h}:${m}`;
+    }
     return String(value);
   };
 
   const columns = getColumns();
+
+  const guessWaktu = (jam: unknown): string | null => {
+    if (!jam) return null;
+    try {
+      // ISO or Date-like string
+      if (typeof jam === 'string') {
+        const s = jam.trim();
+        // normalize 16.05 or 16-05 to 16:05
+        const m = s.match(/^(\d{1,2})[\.:\-](\d{2})/);
+        const norm = m ? `${m[1].padStart(2,'0')}:${m[2]}` : s;
+        const d = new Date(/^\d{4}-\d{2}-\d{2}T/.test(norm) ? norm : `1970-01-01T${norm}:00.000Z`);
+        if (!Number.isNaN(d.getTime())) {
+          const h = d.getUTCHours();
+          if (h >= 0 && h <= 3) return 'Dini Hari';
+          if (h > 3 && h <= 8) return 'Pagi';
+          if (h > 8 && h <= 13) return 'Siang';
+          if (h > 13 && h <= 18) return 'Sore';
+          return 'Malam';
+        }
+      } else if (jam instanceof Date) {
+        const h = jam.getUTCHours();
+        if (h >= 0 && h <= 3) return 'Dini Hari';
+        if (h > 3 && h <= 8) return 'Pagi';
+        if (h > 8 && h <= 13) return 'Siang';
+        if (h > 13 && h <= 18) return 'Sore';
+        return 'Malam';
+      }
+    } catch {}
+    return null;
+  };
 
   const toggleSort = (key: string) => {
     if (sortBy === key) {
@@ -447,7 +501,7 @@ export default function DataTable({ dataType, exportScope = 'all' }: DataTablePr
               {columns.map((column) => {
                 const active = sortBy === column.key;
                 return (
-                  <th key={column.key} className="border border-gray-300 px-4 py-2 text-left text-sm font-medium text-gray-700">
+                  <th key={column.key} className={`border border-gray-300 px-4 py-2 text-left text-sm font-medium text-gray-700 ${dataType === 'bird-strike' && column.key === 'deskripsi' ? 'min-w-[420px] w-[420px]' : ''}`}>
                     <button onClick={() => toggleSort(column.key)} className="flex items-center gap-1">
                       <span>{column.label}</span>
                       <span className="text-xs text-gray-500">{active ? (sortOrder === 'asc' ? '▲' : '▼') : ''}</span>
@@ -477,26 +531,58 @@ export default function DataTable({ dataType, exportScope = 'all' }: DataTablePr
                     if (column.key === 'dokumentasi' && typeof val === 'string' && val) {
                       const lower = val.toLowerCase();
                       const isDataImg = lower.startsWith('data:image/');
-                      const isUrlImg = /\.(png|jpe?g|gif|webp|bmp|svg)(\?.*)?$/.test(lower) || (lower.startsWith('http') && !/\.pdf(\?.*)?$/.test(lower));
-                      const isImage = isDataImg || isUrlImg;
+                      const hasImgExt = /\.(png|jpe?g|gif|webp|bmp|svg)(\?.*)?$/.test(lower);
                       const isPdf = lower.startsWith('data:application/pdf') || /\.pdf(\?.*)?$/.test(lower);
+
+                      const toDriveImage = (url: string): string | null => {
+                        try {
+                          const u = new URL(url);
+                          // Patterns: /file/d/{id}/view, open?id=, uc?id=
+                          if (u.hostname === 'drive.google.com') {
+                            const m = u.pathname.match(/\/file\/d\/([^/]+)\/view/);
+                            const id = m ? m[1] : (u.searchParams.get('id') || null);
+                            if (id) return `https://drive.google.com/uc?export=view&id=${id}`;
+                          }
+                        } catch {}
+                        return null;
+                      };
+
+                      let displayUrl = val;
+                      let isImage = isDataImg || hasImgExt;
+                      if (!isImage && !isPdf && lower.startsWith('http')) {
+                        const drv = toDriveImage(val);
+                        if (drv) { displayUrl = drv; isImage = true; }
+                      }
+
+                      const Thumb = () => {
+                        const [failed, setFailed] = useState(false);
+                        if (!isImage || failed) {
+                          return (
+                            <span>-</span>
+                          );
+                        }
+                        return (
+                          <button onClick={() => openPreview(displayUrl, 'image')} className="inline-block border border-gray-300 rounded hover:opacity-90" title="Lihat & Download">
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img src={displayUrl} alt="Dokumentasi" className="h-16 w-16 object-cover rounded" loading="lazy" onError={() => setFailed(true)} />
+                          </button>
+                        );
+                      };
+
                       return (
                         <td key={column.key} className="border border-gray-300 px-4 py-2 text-sm">
-                          {isImage ? (
-                            <button onClick={() => openPreview(val, 'image')} className="inline-block border border-gray-300 rounded hover:opacity-90" title="Lihat & Download">
-                              {/* eslint-disable-next-line @next/next/no-img-element */}
-                              <img src={val} alt="Dokumentasi" className="h-16 w-16 object-cover rounded" />
-                            </button>
-                          ) : isPdf ? (
-                            <button onClick={() => openPreview(val, 'pdf')} className="text-blue-600 hover:underline">Lihat PDF</button>
-                          ) : (
-                            <button onClick={() => openPreview(val, 'file')} className="text-blue-600 hover:underline">Lihat File</button>
-                          )}
+                          <Thumb />
                         </td>
                       );
                     }
+                    if (dataType === 'bird-strike' && column.key === 'waktu') {
+                      const derived = row['waktu'] || guessWaktu(row['jam']);
+                      return (
+                        <td key={column.key} className="border border-gray-300 px-4 py-2 text-sm">{derived || '-'}</td>
+                      );
+                    }
                     return (
-                      <td key={column.key} className="border border-gray-300 px-4 py-2 text-sm">{formatValue(val, column.key)}</td>
+                      <td key={column.key} className={`border border-gray-300 px-4 py-2 text-sm ${dataType === 'bird-strike' && column.key === 'deskripsi' ? 'min-w-[420px] w-[420px] whitespace-pre-wrap break-words' : ''}`}>{formatValue(val, column.key)}</td>
                     );
                   })}
                   {dataType !== 'modeling' && (
@@ -530,10 +616,12 @@ export default function DataTable({ dataType, exportScope = 'all' }: DataTablePr
       <div className="flex justify-between items-center mt-6">
         <div className="text-sm text-gray-600">
           {(() => {
-            const total = pagination?.total ?? 0;
-            const start = total === 0 ? 0 : ((page - 1) * limit) + 1;
-            const end = total === 0 ? 0 : Math.min(page * limit, total);
-            return <>Showing {start} to {end} of {total} entries</>;
+            const totalFiltered = pagination?.total;
+            const totalAll = (pagination as any)?.totalAll;
+            const start = data.length === 0 ? 0 : ((page - 1) * limit) + 1;
+            const end = data.length === 0 ? 0 : ((page - 1) * limit) + data.length;
+            const totalText = typeof totalAll === 'number' ? String(totalAll) : (typeof totalFiltered === 'number' ? String(totalFiltered) : String(end));
+            return <>Showing {start} to {end} of {totalText} entries</>;
           })()}
         </div>
         <div className="flex items-center gap-2">
@@ -541,8 +629,8 @@ export default function DataTable({ dataType, exportScope = 'all' }: DataTablePr
             <ChevronLeft className="w-4 h-4" />
             Previous
           </button>
-          <span className="px-3 py-1 text-sm">Page {page} of {pagination?.pages ?? 0}</span>
-          <button onClick={() => setPage(page + 1)} disabled={page === (pagination?.pages ?? 1) || (pagination?.pages ?? 0) === 0} className="border border-gray-300 px-3 py-1 rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 flex items-center gap-1 text-sm">
+          <span className="px-3 py-1 text-sm">Page {page}</span>
+          <button onClick={() => setPage(page + 1)} disabled={!hasMore} className="border border-gray-300 px-3 py-1 rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 flex items-center gap-1 text-sm">
             Next
             <ChevronRight className="w-4 h-4" />
           </button>

@@ -64,6 +64,17 @@ export async function GET(request: NextRequest) {
       ...(search && { OR: orFilters })
     };
 
+    const total = process.env.DATABASE_URL ? await prisma.birdStrike.count({ where }) : 0;
+
+    if (!process.env.DATABASE_URL) {
+      return NextResponse.json({
+        success: true,
+        data: [],
+        pagination: { page: 1, limit, total: 0, pages: 0 },
+        pageInfo: { limit, hasMore: false, nextCursor: null }
+      });
+    }
+
     const items = await prisma.birdStrike.findMany({
       where,
       orderBy,
@@ -81,31 +92,15 @@ export async function GET(request: NextRequest) {
       const dd = String(d.getDate()).padStart(2, '0');
       return `${yyyy}${mm}${dd}`;
     };
-    const ymdUTC = (d: Date): string => {
-      const yyyy = d.getUTCFullYear();
-      const mm = String(d.getUTCMonth() + 1).padStart(2, '0');
-      const dd = String(d.getUTCDate()).padStart(2, '0');
-      return `${yyyy}${mm}${dd}`;
-    };
-    const pickExistingUrl = async (d: Date): Promise<string | null> => {
-      const candidates: string[] = [];
-      const l = ymdLocal(d); const u = ymdUTC(d);
-      for (const base of [l, u]) {
-        for (const ext of ['png','jpg','jpeg']) candidates.push(`${DOC_BASE}${base}.${ext}`);
-      }
-      for (const url of candidates) {
-        try { const res = await fetch(url, { method: 'HEAD', cache: 'no-store' }); if (res.ok) return url; } catch {}
-      }
-      return null;
-    };
 
-    const enriched: typeof rows = [];
-    for (const r of rows) {
+    const enriched: typeof rows = rows.map((r) => {
       if ((!r.dokumentasi || r.dokumentasi === '') && r.tanggal) {
-        const url = await pickExistingUrl(r.tanggal as Date);
-        enriched.push(url ? { ...r, dokumentasi: url } : r);
-      } else { enriched.push(r); }
-    }
+        const d = r.tanggal as Date;
+        const url = `${DOC_BASE}${ymdLocal(d)}.png`;
+        return { ...r, dokumentasi: url };
+      }
+      return r;
+    });
 
     const serialize = (value: unknown): unknown => {
       if (value === null || value === undefined) return value;
@@ -116,13 +111,18 @@ export async function GET(request: NextRequest) {
       return value;
     };
 
+    const totalAll = process.env.DATABASE_URL ? await prisma.birdStrike.count() : 0;
     return NextResponse.json({
       success: true,
       data: serialize(enriched),
+      pagination: { page: 1, limit, total, totalAll, pages: Math.ceil(total / Math.max(1, limit)) },
       pageInfo: { limit, hasMore, nextCursor }
     });
   } catch (error) {
     console.error('Error fetching bird strike data:', error);
+    if (!process.env.DATABASE_URL) {
+      return NextResponse.json({ success: true, data: [], pagination: { page: 1, limit: 10, total: 0, pages: 0 }, pageInfo: { limit: 10, hasMore: false, nextCursor: null } });
+    }
     return NextResponse.json(
       { success: false, message: 'Failed to fetch data' },
       { status: 500 }

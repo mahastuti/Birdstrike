@@ -65,6 +65,10 @@ export async function GET(request: NextRequest, context: { params: Promise<{ dat
         ...(search && { OR: orFilters })
       };
 
+      if (!process.env.DATABASE_URL) {
+        const headers = ['tanggal','jam','waktu','fase','lokasi_perimeter','kategori_kejadian','airline','runway_use','komponen_pesawat','dampak_pada_pesawat','kondisi_kerusakan','tindakan_perbaikan','sumber_informasi','remark','deskripsi','dokumentasi','jenis_pesawat'];
+        return buildResponse(headers.join(','), `bird-strike_all_${timestamp}.csv`);
+      }
       let rows = await prisma.birdStrike.findMany({ where, orderBy });
       if (Number.isFinite(pageParam) && Number.isFinite(limitParam) && pageParam > 0 && limitParam > 0) {
         const start = (pageParam - 1) * limitParam;
@@ -127,6 +131,10 @@ export async function GET(request: NextRequest, context: { params: Promise<{ dat
         ...(search && { OR: orFilters })
       };
 
+      if (!process.env.DATABASE_URL) {
+        const headers = ['longitude','latitude','lokasi','titik','tanggal','jam','waktu','cuaca','jenis_burung','nama_ilmiah','jumlah_burung','keterangan','dokumentasi'];
+        return buildResponse(headers.join(','), `bird-species_all_${timestamp}.csv`);
+      }
       let rows = await prisma.burung_bio.findMany({ where, orderBy });
       if (Number.isFinite(pageParam) && Number.isFinite(limitParam) && pageParam > 0 && limitParam > 0) {
         const start = (pageParam - 1) * limitParam;
@@ -173,6 +181,10 @@ export async function GET(request: NextRequest, context: { params: Promise<{ dat
 
       const where = search ? { OR: orFilters } : {};
 
+      if (!process.env.DATABASE_URL) {
+        const headers = ['tanggal','jam','waktu','cuaca','jumlah_burung_pada_titik_x','titik','fase','strike'];
+        return buildResponse(headers.join(','), `modeling_all_${timestamp}.csv`);
+      }
       let rows = await prisma.model.findMany({ where, orderBy });
       if (Number.isFinite(pageParam) && Number.isFinite(limitParam) && pageParam > 0 && limitParam > 0) {
         const start = (pageParam - 1) * limitParam;
@@ -220,6 +232,10 @@ export async function GET(request: NextRequest, context: { params: Promise<{ dat
       }
       const where = andConds.length ? { AND: andConds } : {};
 
+      if (!process.env.DATABASE_URL) {
+        const headers = ['no','act_type','reg_no','opr','flight_number_origin','flight_number_dest','ata','block_on','block_off','atd','ground_time','org','des','ps','runway','avio_a','avio_d','f_stat','bulan','tahun'];
+        return buildResponse(headers.join(','), `traffic-flight_all_${timestamp}.csv`);
+      }
       let rows = await prisma.trafficFlight.findMany({ where, ...(sortBy === 'no' ? {} : { orderBy }) });
       if (sortBy === 'no') {
         const num = (v: unknown): number => {

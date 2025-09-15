@@ -27,18 +27,15 @@ type BirdStrikeUpdate = Partial<{
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
-    const page = parseInt(searchParams.get('page') || '1');
-    const limit = parseInt(searchParams.get('limit') || '10');
+    const limit = Math.min(parseInt(searchParams.get('limit') || '10'), 100);
     const search = searchParams.get('search') || '';
     const showDeleted = searchParams.get('showDeleted') === 'true';
 
-    const sortBy = (searchParams.get('sortBy') || 'createdAt');
     const sortOrder: SortOrder = (searchParams.get('sortOrder') === 'asc' ? 'asc' : 'desc');
+    const cursorParam = searchParams.get('cursor');
+    const cursorId = cursorParam && /^\d+$/.test(cursorParam) ? BigInt(cursorParam) : null;
 
-    const allowedSort = new Set(['id','tanggal','jam','waktu','fase','lokasi_perimeter','titik','kategori_kejadian','airline','runway_use','komponen_pesawat','dampak_pada_pesawat','kondisi_kerusakan','tindakan_perbaikan','sumber_informasi','remark','deskripsi','jenis_pesawat','createdAt']);
-    const orderBy: Record<string, SortOrder> = allowedSort.has(sortBy) ? { [sortBy]: sortOrder } : { createdAt: 'desc' };
-
-    const skip = (page - 1) * limit;
+    const orderBy: Record<string, SortOrder> = { id: sortOrder };
 
     const orFilters: Record<string, unknown>[] = [];
     if (search) {
@@ -67,10 +64,15 @@ export async function GET(request: NextRequest) {
       ...(search && { OR: orFilters })
     };
 
-    const [rows, total] = await Promise.all([
-      prisma.birdStrike.findMany({ where, orderBy, skip, take: limit }),
-      prisma.birdStrike.count({ where })
-    ]);
+    const items = await prisma.birdStrike.findMany({
+      where,
+      orderBy,
+      take: limit + 1,
+      ...(cursorId ? { cursor: { id: cursorId }, skip: 1 } : {})
+    });
+    const hasMore = items.length > limit;
+    const rows = hasMore ? items.slice(0, limit) : items;
+    const nextCursor = hasMore ? String(rows[rows.length - 1].id) : null;
 
     const DOC_BASE = 'https://odjhvlqvbnqrjlowjywq.supabase.co/storage/v1/object/public/bird-strike/';
     const ymdLocal = (d: Date): string => {
@@ -97,7 +99,7 @@ export async function GET(request: NextRequest) {
       return null;
     };
 
-    const enriched: typeof rows = [] as any;
+    const enriched: typeof rows = [];
     for (const r of rows) {
       if ((!r.dokumentasi || r.dokumentasi === '') && r.tanggal) {
         const url = await pickExistingUrl(r.tanggal as Date);
@@ -117,7 +119,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       success: true,
       data: serialize(enriched),
-      pagination: { page, limit, total, pages: Math.ceil(total / limit) }
+      pageInfo: { limit, hasMore, nextCursor }
     });
   } catch (error) {
     console.error('Error fetching bird strike data:', error);
@@ -291,7 +293,7 @@ export async function PUT(request: NextRequest) {
                 const times: string[] = json?.hourly?.time || [];
                 const prec: number[] = json?.hourly?.precipitation || [];
                 const cloud: number[] = json?.hourly?.cloudcover || [];
-                let idx = times.findIndex((t: string) => t === `${dateStr}T${String(hour).padStart(2,'0')}:00`);
+                const idx = times.findIndex((t: string) => t === `${dateStr}T${String(hour).padStart(2,'0')}:00`);
                 if (idx >= 0) {
                   const p = Number(prec[idx] ?? 0);
                   const c = Number(cloud[idx] ?? 0);

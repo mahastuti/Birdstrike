@@ -144,7 +144,6 @@ export default function PredictSection() {
     fetchWeather();
   }, [formData.tanggal, formData.jam]);
 
-  const derivedYear = formData.tanggal ? new Date(formData.tanggal).getFullYear() : '2024';
 
   return (
     <div className="max-w-4xl mx-auto space-y-6 mb-19">

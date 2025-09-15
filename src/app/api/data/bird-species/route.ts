@@ -22,18 +22,15 @@ type BurungBioUpdate = Partial<{
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
-    const page = parseInt(searchParams.get('page') || '1');
-    const limit = parseInt(searchParams.get('limit') || '10');
+    const limit = Math.min(parseInt(searchParams.get('limit') || '10'), 100);
     const search = searchParams.get('search') || '';
     const showDeleted = searchParams.get('showDeleted') === 'true';
 
-    const sortBy = (searchParams.get('sortBy') || 'createdAt');
     const sortOrder: SortOrder = (searchParams.get('sortOrder') === 'asc' ? 'asc' : 'desc');
+    const cursorParam = searchParams.get('cursor');
+    const cursorId = cursorParam && /^\d+$/.test(cursorParam) ? BigInt(cursorParam) : null;
 
-    const allowedSort = new Set(['id','longitude','latitude','lokasi','titik','tanggal','jam','waktu','cuaca','jenis_burung','nama_ilmiah','jumlah_burung','createdAt']);
-    const orderBy: Record<string, SortOrder> = allowedSort.has(sortBy) ? { [sortBy]: sortOrder } : { createdAt: 'desc' };
-
-    const skip = (page - 1) * limit;
+    const orderBy: Record<string, SortOrder> = { id: sortOrder };
 
     const orFilters: Record<string, unknown>[] = [];
     if (search) {
@@ -69,15 +66,16 @@ export async function GET(request: NextRequest) {
       ...(search && { OR: orFilters })
     };
 
-    const [data, total] = await Promise.all([
-      prisma.burung_bio.findMany({
-        where,
-        orderBy,
-        skip,
-        take: limit,
-      }),
-      prisma.burung_bio.count({ where })
-    ]);
+    const items = await prisma.burung_bio.findMany({
+      where,
+      orderBy,
+      take: limit + 1,
+      ...(cursorId ? { cursor: { id: cursorId }, skip: 1 } : {})
+    });
+
+    const hasMore = items.length > limit;
+    const data = hasMore ? items.slice(0, limit) : items;
+    const nextCursor = hasMore ? String(data[data.length - 1].id) : null;
 
     const serialize = (value: unknown): unknown => {
       if (value === null || value === undefined) return value;
@@ -99,12 +97,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       success: true,
       data: safeData,
-      pagination: {
-        page,
-        limit,
-        total,
-        pages: Math.ceil(total / limit)
-      }
+      pageInfo: { limit, hasMore, nextCursor }
     });
   } catch (error) {
     console.error('Error fetching bird species data:', error);

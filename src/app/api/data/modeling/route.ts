@@ -14,17 +14,14 @@ const waktuFromHour = (hour: number): string => {
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
-    const page = parseInt(searchParams.get('page') || '1');
-    const limit = parseInt(searchParams.get('limit') || '10');
+    const limit = Math.min(parseInt(searchParams.get('limit') || '10'), 100);
     const search = searchParams.get('search') || '';
 
-    const sortByParam = searchParams.get('sortBy') || 'tanggal';
     const sortOrderParam: SortOrder = (searchParams.get('sortOrder') === 'asc' ? 'asc' : 'desc');
+    const cursorParam = searchParams.get('cursor');
+    const cursorId = cursorParam && /^\d+$/.test(cursorParam) ? BigInt(cursorParam) : null;
 
-    const allowedSort = new Set(['id','tanggal','jam','waktu','cuaca','jumlah_burung_pada_titik_x','titik','fase','strike']);
-    const orderBy: Record<string, SortOrder> = allowedSort.has(sortByParam) ? { [sortByParam]: sortOrderParam } : { tanggal: 'desc' };
-
-    const skip = (page - 1) * limit;
+    const orderBy: Record<string, SortOrder> = { id: sortOrderParam };
 
     const orFilters: Record<string, unknown>[] = [];
     if (search) {
@@ -42,10 +39,16 @@ export async function GET(request: NextRequest) {
 
     const where = search ? { OR: orFilters } : {};
 
-    const [rows, total] = await Promise.all([
-      prisma.model.findMany({ where, orderBy, skip, take: limit }),
-      prisma.model.count({ where })
-    ]);
+    const items = await prisma.model.findMany({
+      where,
+      orderBy,
+      take: limit + 1,
+      ...(cursorId ? { cursor: { id: cursorId }, skip: 1 } : {})
+    });
+
+    const hasMore = items.length > limit;
+    const rows = hasMore ? items.slice(0, limit) : items;
+    const nextCursor = hasMore ? String(rows[rows.length - 1].id) : null;
 
     const serialize = (value: unknown): unknown => {
       if (value === null || value === undefined) return value;
@@ -56,14 +59,14 @@ export async function GET(request: NextRequest) {
       return value;
     };
 
-    return NextResponse.json({ success: true, data: serialize(rows), pagination: { page, limit, total, pages: Math.ceil(total / limit) } });
+    return NextResponse.json({ success: true, data: serialize(rows), pageInfo: { limit, hasMore, nextCursor } });
   } catch (error) {
     console.error('Error fetching modeling data:', error);
     return NextResponse.json({ success: false, message: 'Failed to fetch modeling data' }, { status: 500 });
   }
 }
 
-export async function POST(request: NextRequest) {
+export async function POST() {
   try {
     const since = new Date('2025-01-01T00:00:00.000Z');
     const birdStrikes = await prisma.birdStrike.findMany({

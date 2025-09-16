@@ -25,36 +25,40 @@ export async function GET(request: NextRequest) {
     const limit = Math.min(parseInt(searchParams.get('limit') || '10'), 100);
     const search = searchParams.get('search') || '';
     const showDeleted = searchParams.get('showDeleted') === 'true';
+    const sTrim = search.trim();
+    const doSearch = sTrim.length >= 2;
+
+    const safeCount = async (fn: () => Promise<number>) => {
+      try { return await fn(); } catch (e) { console.error('prisma:error count()', e); return 0; }
+    };
+    const safeFind = async <T>(fn: () => Promise<T>, fallback: T): Promise<T> => {
+      try { return await fn(); } catch (e) { console.error('prisma:error find()', e); return fallback; }
+    };
 
     const sortOrder: SortOrder = (searchParams.get('sortOrder') === 'asc' ? 'asc' : 'desc');
     const cursorParam = searchParams.get('cursor');
     const cursorId = cursorParam && /^\d+$/.test(cursorParam) ? BigInt(cursorParam) : null;
 
-    const orderBy: Record<string, SortOrder> = { id: sortOrder };
+    const orderBy = showDeleted ? ([{ deletedAt: 'desc' as const }, { id: 'desc' as const }]) : ({ id: sortOrder });
 
     const orFilters: Record<string, unknown>[] = [];
-    if (search) {
-      const s = search;
+    if (doSearch) {
+      const s = sTrim;
       const like = (key: string) => ({ [key]: { contains: s, mode: 'insensitive' as const } });
-      // string fields
       for (const k of ['longitude','latitude','lokasi','titik','waktu','cuaca','jenis_burung','nama_ilmiah','keterangan','dokumentasi']) {
         orFilters.push(like(k));
       }
-      // numeric equals
       const asInt = Number.parseInt(s, 10);
       if (!Number.isNaN(asInt)) {
         orFilters.push({ jumlah_burung: asInt });
       }
-      // bigint id
       if (/^\d+$/.test(s)) {
         try { orFilters.push({ id: BigInt(s) }); } catch {}
       }
-      // date YYYY-MM-DD
       if (/^\d{4}-\d{2}-\d{2}$/.test(s)) {
         const d = new Date(s);
         if (!Number.isNaN(d.getTime())) orFilters.push({ tanggal: d });
       }
-      // time HH:MM
       if (/^\d{2}:\d{2}$/.test(s)) {
         const t = new Date(`1970-01-01T${s}:00.000Z`);
         if (!Number.isNaN(t.getTime())) orFilters.push({ jam: t });
@@ -63,21 +67,38 @@ export async function GET(request: NextRequest) {
 
     const where = {
       deletedAt: showDeleted ? { not: null } : null,
-      ...(search && { OR: orFilters })
+      ...(doSearch && { OR: orFilters })
     };
 
-    const total = process.env.DATABASE_URL ? await prisma.burung_bio.count({ where }) : 0;
+    const total = 0;
 
     if (!process.env.DATABASE_URL) {
       return NextResponse.json({ success: true, data: [], pagination: { page: 1, limit, total: 0, pages: 0 }, pageInfo: { limit, hasMore: false, nextCursor: null } });
     }
 
-    const items = await prisma.burung_bio.findMany({
+    const items = await safeFind(() => prisma.burung_bio.findMany({
       where,
-      orderBy,
+      orderBy: orderBy as any,
+      select: {
+        id: true,
+        longitude: true,
+        latitude: true,
+        lokasi: true,
+        titik: true,
+        tanggal: true,
+        jam: true,
+        waktu: true,
+        cuaca: true,
+        jenis_burung: true,
+        nama_ilmiah: true,
+        jumlah_burung: true,
+        keterangan: true,
+        dokumentasi: true,
+        deletedAt: true,
+      },
       take: limit + 1,
       ...(cursorId ? { cursor: { id: cursorId }, skip: 1 } : {})
-    });
+    }), [] as Awaited<ReturnType<typeof prisma.burung_bio.findMany>>);
 
     const hasMore = items.length > limit;
     const data = hasMore ? items.slice(0, limit) : items;
@@ -116,7 +137,7 @@ export async function GET(request: NextRequest) {
 
     const safeData = serialize(enriched);
 
-    const totalAll = process.env.DATABASE_URL ? await prisma.burung_bio.count() : 0;
+    const totalAll = 0;
     return NextResponse.json({
       success: true,
       data: safeData,

@@ -30,6 +30,15 @@ export async function GET(request: NextRequest) {
     const limit = Math.min(parseInt(searchParams.get('limit') || '10'), 100);
     const search = searchParams.get('search') || '';
     const showDeleted = searchParams.get('showDeleted') === 'true';
+    const sTrim = search.trim();
+    const doSearch = sTrim.length >= 2;
+
+    const safeCount = async (fn: () => Promise<number>) => {
+      try { return await fn(); } catch (e) { console.error('prisma:error count()', e); return 0; }
+    };
+    const safeFind = async <T>(fn: () => Promise<T>, fallback: T): Promise<T> => {
+      try { return await fn(); } catch (e) { console.error('prisma:error find()', e); return fallback; }
+    };
 
     const sortOrder: SortOrder = (searchParams.get('sortOrder') === 'asc' ? 'asc' : 'desc');
     const cursorParam = searchParams.get('cursor');
@@ -38,8 +47,8 @@ export async function GET(request: NextRequest) {
     const orderBy: Record<string, SortOrder> = { id: sortOrder };
 
     const orFilters: Record<string, unknown>[] = [];
-    if (search) {
-      const s = search;
+    if (doSearch) {
+      const s = sTrim;
       const like = (key: string) => ({ [key]: { contains: s, mode: 'insensitive' as const } });
       for (const k of [
         'waktu','fase','lokasi_perimeter','titik','kategori_kejadian','remark','airline','runway_use','komponen_pesawat','dampak_pada_pesawat','kondisi_kerusakan','tindakan_perbaikan','sumber_informasi','deskripsi','dokumentasi','jenis_pesawat'
@@ -61,10 +70,10 @@ export async function GET(request: NextRequest) {
 
     const where = {
       deletedAt: showDeleted ? { not: null } : null,
-      ...(search && { OR: orFilters })
+      ...(doSearch && { OR: orFilters })
     };
 
-    const total = process.env.DATABASE_URL ? await prisma.birdStrike.count({ where }) : 0;
+    const total = 0;
 
     if (!process.env.DATABASE_URL) {
       return NextResponse.json({
@@ -75,12 +84,34 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    const items = await prisma.birdStrike.findMany({
+    const items = await safeFind(() => prisma.birdStrike.findMany({
       where,
       orderBy,
+      select: {
+        id: true,
+        tanggal: true,
+        jam: true,
+        waktu: true,
+        fase: true,
+        lokasi_perimeter: true,
+        titik: true,
+        kategori_kejadian: true,
+        remark: true,
+        airline: true,
+        runway_use: true,
+        komponen_pesawat: true,
+        dampak_pada_pesawat: true,
+        kondisi_kerusakan: true,
+        tindakan_perbaikan: true,
+        sumber_informasi: true,
+        deskripsi: true,
+        dokumentasi: true,
+        jenis_pesawat: true,
+        deletedAt: true,
+      },
       take: limit + 1,
       ...(cursorId ? { cursor: { id: cursorId }, skip: 1 } : {})
-    });
+    }), [] as Awaited<ReturnType<typeof prisma.birdStrike.findMany>>);
     const hasMore = items.length > limit;
     const rows = hasMore ? items.slice(0, limit) : items;
     const nextCursor = hasMore ? String(rows[rows.length - 1].id) : null;
@@ -111,7 +142,7 @@ export async function GET(request: NextRequest) {
       return value;
     };
 
-    const totalAll = process.env.DATABASE_URL ? await prisma.birdStrike.count() : 0;
+    const totalAll = 0;
     return NextResponse.json({
       success: true,
       data: serialize(enriched),

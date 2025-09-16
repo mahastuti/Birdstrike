@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import dynamic from 'next/dynamic';
-import { BarChart3, LayoutDashboard, Map, FileBarChart } from 'lucide-react';
+import { BarChart3, LayoutDashboard, Map } from 'lucide-react';
 import DashboardInputData from '@/components/dashboard/dashboard-input-data';
 import PredictSection from '@/components/dashboard/predict-section';
 
@@ -50,16 +50,6 @@ export default function Dashboard() {
           >
             <Map className="w-5 h-5" />
             Map
-          </button>
-          <button
-            onClick={() => setSelectedSidebarOption('analisis')}
-            className={`w-full text-left p-3 rounded-lg border-2 transition-colors flex items-center gap-3 ${selectedSidebarOption === 'analisis'
-                ? "bg-gradient-to-r from-[#72BB34] to-[#40A3DC] border border-white text-white hover:opacity-80"
-                : 'bg-[#83C8EF] font-medium text-white'
-              }`}
-          >
-            <FileBarChart className="w-5 h-5" />
-            Analisis
           </button>
         </div>
       </div>
@@ -128,20 +118,6 @@ export default function Dashboard() {
         )}
 
 
-        {selectedSidebarOption === 'analisis' && (
-          <div className="space-y-6">
-            <div className="bg-white border-2 border-gray-300 rounded-lg">
-              <div className="p-3 bg-[#40A3DC] border-b border-gray-300 rounded-t-lg">
-                <h2 className="text-2xl font-medium text-center text-white">ANALISIS</h2>
-              </div>
-              <div className="p-8">
-                <div className="h-96 bg-gray-100 border-2 border-gray-300 rounded-lg flex items-center justify-center">
-                  <p className="text-gray-700 text-lg">Analysis content will be displayed here</p>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
       </div>
 
     </div>

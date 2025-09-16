@@ -21,16 +21,17 @@ export default function MapControls() {
   const [burungPadaTitik, setBurungPadaTitik] = useState('');
 
   const getMapSrc = () => {
-    if (mode === 'heatmap') return assets.map1; // Rule 1: initial heatmap shows map1
-
-    const g = garis, a = area, p = points;
-    if (g && !a && !p) return assets.map3; // Rule 2
-    if (g && a && !p) return assets.map5;  // Rule 3
-    if (g && a && p) return assets.map6;   // Rule 4
-    if (!g && a && !p) return assets.map4; // Rule 5
-    if (!g && a && p) return assets.map6;  // Rule 6
-    if (!g && !a && p) return assets.map2; // sensible default for points only
-    return assets.map5; // fallback
+    // Mapping per permintaan (pakai gambar yang sudah ada saja)
+    const a = garis, b = area, c = points;
+    if (!a && !b && !c) return assets.map1; // none
+    if (a && !b && !c) return assets.map4;  // a
+    if (!a && b && !c) return assets.map3;  // b
+    if (!a && !b && c) return assets.map2;  // c
+    if (a && b && !c) return assets.map5;   // a+b
+    if (!a && b && c) return assets.map6;   // b+c
+    if (a && !b && c) return assets.map7;   // a
+    if (a && b && c) return assets.map8;    // 
+    return assets.map1;
   };
 
   const src = getMapSrc() as StaticImageData;
@@ -50,21 +51,20 @@ export default function MapControls() {
   );
 
   return (
-    <div className="p-8 space-y-4">
+    <div className="p-8 space-y-4 mb-4">
       <div className="flex gap-3">
-        <Pill label="heatmap" active={mode === 'heatmap'} onClick={() => setMode(m => (m === 'heatmap' ? null : 'heatmap'))} />
-        <Pill label="bubble" active={mode === 'bubble'} onClick={() => setMode(m => (m === 'bubble' ? null : 'bubble'))} />
-        <Pill label="tren" active={mode === 'tren'} onClick={() => setMode(m => (m === 'tren' ? null : 'tren'))} />
+        <Pill label="Heat Plot" active={mode === 'heatmap'} onClick={() => setMode(m => (m === 'heatmap' ? null : 'heatmap'))} />
+        <Pill label="Bubble Plot" active={mode === 'bubble'} onClick={() => setMode(m => (m === 'bubble' ? null : 'bubble'))} />
       </div>
 
       <div className="space-y-2">
-        <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={garis} onChange={e => setGaris(e.target.checked)} className="rounded" /> garis perimeter</label>
-        <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={area} onChange={e => setArea(e.target.checked)} className="rounded" /> area dalam perimeter</label>
-        <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={points} onChange={e => setPoints(e.target.checked)} className="rounded" /> 8 titik potensial</label>
+        <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={garis} onChange={e => setGaris(e.target.checked)} className="rounded" /> Garis Perimeter</label>
+        <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={area} onChange={e => setArea(e.target.checked)} className="rounded" /> Area dalam Perimeter</label>
+        <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={points} onChange={e => setPoints(e.target.checked)} className="rounded" /> 8 Titik Potensial</label>
       </div>
 
       <div className="flex justify-end mb-2">
-        <div className="inline-flex items-stretch rounded-full overflow-hidden border border-gray-300 shadow-sm">
+        <div className="inline-flex items-stretch rounded-full overflow-hidden border mb-2">
           <button
             onClick={zoomOut}
             aria-label="Zoom out"
@@ -91,13 +91,14 @@ export default function MapControls() {
         <div className="w-full h-full flex items-center justify-center p-2">
           <Image
             src={src}
-            alt={`Map${mode ? ' - ' + mode : ''}`}
+            alt="Peta"
             width={src.width}
             height={src.height}
             className="select-none"
             style={{ width: `${(zoom * 100).toFixed(0)}%`, height: 'auto' }}
             sizes="100vw"
-            priority={false}
+            priority
+            placeholder="blur"
           />
         </div>
       </div>
@@ -125,7 +126,7 @@ export default function MapControls() {
         </div>
       </div>
 
-      <div className="mt-6 bg-white border-2 border-gray-300 rounded-lg p-4">
+      <div className="mt-6 bg-white border-2 border-gray-300 rounded-lg p-4 ">
         <h3 className="text-lg font-medium text-center mb-4">Parameter Map</h3>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div>

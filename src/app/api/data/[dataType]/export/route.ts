@@ -37,7 +37,7 @@ export async function GET(request: NextRequest, context: { params: Promise<{ dat
     const timestamp = `${ts.getFullYear()}-${pad(ts.getMonth() + 1)}-${pad(ts.getDate())}_${pad(ts.getHours())}-${pad(ts.getMinutes())}-${pad(ts.getSeconds())}`;
 
     if (dataType === 'bird-strike') {
-      const allowedSort = new Set(['id','tanggal','jam','waktu','fase','lokasi_perimeter','kategori_kejadian','airline','runway_use','komponen_pesawat','dampak_pada_pesawat','kondisi_kerusakan','tindakan_perbaikan','sumber_informasi','remark','deskripsi','jenis_pesawat','createdAt']);
+      const allowedSort = new Set(['id','tanggal','jam','waktu','fase','lokasi_perimeter','titik','kategori_kejadian','airline','runway_use','komponen_pesawat','dampak_pada_pesawat','kondisi_kerusakan','tindakan_perbaikan','sumber_informasi','remark','deskripsi','jenis_pesawat','createdAt']);
       const sortBy = allowedSort.has(sortByParam) ? sortByParam : 'createdAt';
       const orderBy = { [sortBy]: sortOrderParam } as Record<string, 'asc' | 'desc'>;
 
@@ -46,7 +46,7 @@ export async function GET(request: NextRequest, context: { params: Promise<{ dat
         const s = search;
         const like = (key: string) => ({ [key]: { contains: s, mode: 'insensitive' as const } });
         for (const k of [
-          'waktu','fase','lokasi_perimeter','kategori_kejadian','remark','airline','runway_use','komponen_pesawat','dampak_pada_pesawat','kondisi_kerusakan','tindakan_perbaikan','sumber_informasi','deskripsi','dokumentasi','jenis_pesawat'
+          'waktu','fase','lokasi_perimeter','titik','kategori_kejadian','remark','airline','runway_use','komponen_pesawat','dampak_pada_pesawat','kondisi_kerusakan','tindakan_perbaikan','sumber_informasi','deskripsi','dokumentasi','jenis_pesawat'
         ]) {
           orFilters.push(like(k));
         }
@@ -66,7 +66,7 @@ export async function GET(request: NextRequest, context: { params: Promise<{ dat
       };
 
       if (!process.env.DATABASE_URL) {
-        const headers = ['tanggal','jam','waktu','fase','lokasi_perimeter','kategori_kejadian','airline','runway_use','komponen_pesawat','dampak_pada_pesawat','kondisi_kerusakan','tindakan_perbaikan','sumber_informasi','remark','deskripsi','dokumentasi','jenis_pesawat'];
+        const headers = ['tanggal','jam','waktu','fase','lokasi_perimeter','titik','kategori_kejadian','airline','runway_use','komponen_pesawat','dampak_pada_pesawat','kondisi_kerusakan','tindakan_perbaikan','sumber_informasi','remark','deskripsi','dokumentasi','jenis_pesawat'];
         return buildResponse(headers.join(','), `bird-strike_all_${timestamp}.csv`);
       }
       let rows = await prisma.birdStrike.findMany({ where, orderBy });
@@ -86,7 +86,7 @@ export async function GET(request: NextRequest, context: { params: Promise<{ dat
         return `${yyyy}${mm}${ddp}`;
       };
       const headers = [
-        'tanggal','jam','waktu','fase','lokasi_perimeter','kategori_kejadian','airline','runway_use','komponen_pesawat','dampak_pada_pesawat','kondisi_kerusakan','tindakan_perbaikan','sumber_informasi','remark','deskripsi','dokumentasi','jenis_pesawat'
+        'tanggal','jam','waktu','fase','lokasi_perimeter','titik','kategori_kejadian','airline','runway_use','komponen_pesawat','dampak_pada_pesawat','kondisi_kerusakan','tindakan_perbaikan','sumber_informasi','remark','deskripsi','dokumentasi','jenis_pesawat'
       ];
       const csvRows = [headers.join(',')];
       for (const r of rows) {

@@ -24,6 +24,17 @@ interface TrafficFlightCreate {
   tahun: string | null;
 }
 
+const toNullIfPlaceholder = (v: string | null | undefined): string | null => {
+  if (v == null) return null;
+  const s = String(v).trim();
+  if (s === '') return null;
+  const lower = s.toLowerCase();
+  const placeholders = new Set([
+    '-', '–', '—', 'none', 'null', 'n/a', 'na', '#', '#n/a', 'nil'
+  ]);
+  return placeholders.has(lower) ? null : s;
+};
+
 // Normalize helpers
 const normalizeMonth = (v: string | null): string | null => {
   if (!v) return null;
@@ -124,6 +135,13 @@ export async function POST(request: NextRequest) {
     const form = await request.formData();
     const csvFile = form.get('csvFile') as File | null;
 
+    const safeCount = async (fn: () => Promise<number>) => {
+      try { return await fn(); } catch (e) { console.error('prisma:error count()', e); return 0; }
+    };
+    const safeExec = async <T>(fn: () => Promise<T>): Promise<T | null> => {
+      try { return await fn(); } catch (e) { console.error('prisma:error exec()', e); return null; }
+    };
+
     if (!csvFile) {
       return NextResponse.json(
         { success: false, message: 'File CSV diperlukan' },
@@ -182,16 +200,16 @@ export async function POST(request: NextRequest) {
         row[key as string] = val.replace(/\uFEFF/g, '') || null;
       }
 
-      // Normalize 'no' to remove any dots (e.g., "1." => "1")
+      // Normalize 'no' to keep digits only (e.g., "1." or "1#" => "1")
       if (row.no) {
-        const cleaned = String(row.no).replace(/\./g, '').trim();
+        const cleaned = String(row.no).replace(/[^0-9]/g, '').trim();
         row.no = cleaned || null;
       }
 
-      row.bulan = normalizeMonth(row.bulan);
-      row.tahun = normalizeYear(row.tahun);
-      if (!row.block_on) row.block_on = '';
-      if (!row.block_off) row.block_off = '';
+      row.bulan = normalizeMonth(toNullIfPlaceholder(row.bulan));
+      row.tahun = normalizeYear(toNullIfPlaceholder(row.tahun));
+      if (!row.block_on || toNullIfPlaceholder(row.block_on) === null) row.block_on = '';
+      if (!row.block_off || toNullIfPlaceholder(row.block_off) === null) row.block_off = '';
 
       inputRows.push(row);
     }
@@ -216,25 +234,25 @@ export async function POST(request: NextRequest) {
       }
       data.push({
         no: noVal ?? idx++,
-        act_type: r.act_type ?? null,
-        reg_no: r.reg_no ?? null,
-        opr: r.opr ?? null,
-        flight_number_origin: r.flight_number_origin ?? null,
-        flight_number_dest: r.flight_number_dest ?? null,
-        ata: r.ata ?? null,
-        block_on: (r.block_on ?? '') as string,
-        block_off: (r.block_off ?? '') as string,
-        atd: r.atd ?? null,
-        ground_time: r.ground_time ?? null,
-        org: r.org ?? null,
-        des: r.des ?? null,
-        ps: r.ps ?? null,
-        runway: r.runway ?? null,
-        avio_a: r.avio_a ?? null,
-        avio_d: r.avio_d ?? null,
-        f_stat: r.f_stat ?? null,
-        bulan: r.bulan ?? null,
-        tahun: r.tahun ?? null,
+        act_type: toNullIfPlaceholder(r.act_type),
+        reg_no: toNullIfPlaceholder(r.reg_no),
+        opr: toNullIfPlaceholder(r.opr),
+        flight_number_origin: toNullIfPlaceholder(r.flight_number_origin),
+        flight_number_dest: toNullIfPlaceholder(r.flight_number_dest),
+        ata: toNullIfPlaceholder(r.ata),
+        block_on: (toNullIfPlaceholder(r.block_on) ?? '') as string,
+        block_off: (toNullIfPlaceholder(r.block_off) ?? '') as string,
+        atd: toNullIfPlaceholder(r.atd),
+        ground_time: toNullIfPlaceholder(r.ground_time),
+        org: toNullIfPlaceholder(r.org),
+        des: toNullIfPlaceholder(r.des),
+        ps: toNullIfPlaceholder(r.ps),
+        runway: toNullIfPlaceholder(r.runway),
+        avio_a: toNullIfPlaceholder(r.avio_a),
+        avio_d: toNullIfPlaceholder(r.avio_d),
+        f_stat: toNullIfPlaceholder(r.f_stat),
+        bulan: toNullIfPlaceholder(r.bulan),
+        tahun: toNullIfPlaceholder(r.tahun),
       });
     }
 
@@ -250,8 +268,8 @@ export async function POST(request: NextRequest) {
     const conflicts: { bulan: string | null; tahun: string | null; existing: number }[] = [];
     for (const { bulan, tahun } of groupSet.values()) {
       const count = bulan
-        ? await prisma.trafficFlight.count({ where: { tahun: tahun ?? null, OR: [{ bulan }, { bulan: String(Number.parseInt(bulan, 10)) }] } })
-        : await prisma.trafficFlight.count({ where: { tahun: tahun ?? null, bulan: null } });
+        ? await safeCount(() => prisma.trafficFlight.count({ where: { tahun: tahun ?? null, OR: [{ bulan }, { bulan: String(Number.parseInt(bulan, 10)) }] } }))
+        : await safeCount(() => prisma.trafficFlight.count({ where: { tahun: tahun ?? null, bulan: null } }));
       if (count > 0) conflicts.push({ bulan, tahun, existing: count });
     }
 
@@ -266,37 +284,77 @@ export async function POST(request: NextRequest) {
       for (const { bulan, tahun } of conflicts) {
         if (bulan) {
           const alt = String(Number.parseInt(bulan, 10));
-          await prisma.trafficFlight.deleteMany({ where: { tahun: tahun ?? null, OR: [{ bulan }, { bulan: alt }] } });
+          await safeExec(() => prisma.trafficFlight.deleteMany({ where: { tahun: tahun ?? null, OR: [{ bulan }, { bulan: alt }] } }));
         } else {
-          await prisma.trafficFlight.deleteMany({ where: { tahun: tahun ?? null, bulan: null } });
+          await safeExec(() => prisma.trafficFlight.deleteMany({ where: { tahun: tahun ?? null, bulan: null } }));
         }
       }
     }
 
-    const result = await prisma.trafficFlight.createMany({ data, skipDuplicates: false });
-
-    // Renumber ALL rows globally: order by tahun asc, bulan asc, then id asc
-    const all = await prisma.trafficFlight.findMany({ select: { id: true, bulan: true, tahun: true }, orderBy: { id: 'asc' } });
-    const toNum = (v: string | null | undefined) => {
-      const n = Number.parseInt(String(v ?? ''), 10);
-      return Number.isFinite(n) && !Number.isNaN(n) ? n : Number.MAX_SAFE_INTEGER;
-    };
-    const sorted = all.sort((a, b) => {
-      const ty = toNum(a.tahun) - toNum(b.tahun);
-      if (ty !== 0) return ty;
-      const tm = toNum(a.bulan) - toNum(b.bulan);
-      if (tm !== 0) return tm;
-      return Number(a.id) - Number(b.id);
-    });
-    const batchSize = 200;
-    for (let i = 0; i < sorted.length; i += batchSize) {
-      const chunk = sorted.slice(i, i + batchSize);
-      await prisma.$transaction(
-        chunk.map((row, idx2) => prisma.trafficFlight.update({ where: { id: row.id as unknown as bigint }, data: { no: i + idx2 + 1 } }))
-      );
+    // Insert in chunks with simple retry to mitigate pool timeouts
+    const chunkSize = 500;
+    let inserted = 0;
+    for (let i = 0; i < data.length; i += chunkSize) {
+      const chunk = data.slice(i, i + chunkSize);
+      let tries = 0;
+      while (tries < 2) {
+        const res = await safeExec(() => prisma.trafficFlight.createMany({ data: chunk, skipDuplicates: false }));
+        if (res) { inserted += (res as any).count ?? 0; break; }
+        tries++;
+      }
+    }
+    if (inserted <= 0) {
+      return NextResponse.json({ success: false, message: 'Gagal memproses CSV' }, { status: 500 });
     }
 
-    return NextResponse.json({ success: true, message: `Berhasil import ${result.count} baris`, count: result.count }, { status: 201 });
+    // Renumber ALL rows globally: order by tahun asc, bulan asc, then id asc
+    try {
+      // Fast global renumber using SQL window function
+      await prisma.$executeRawUnsafe(`
+        WITH ordered AS (
+          SELECT id,
+                 row_number() OVER (
+                   ORDER BY
+                     COALESCE(NULLIF(tahun, ''), '999999')::int,
+                     COALESCE(NULLIF(bulan, ''), '99')::int,
+                     id
+                 ) AS rn
+          FROM "traffic_flight"
+        )
+        UPDATE "traffic_flight" t
+        SET "no" = o.rn
+        FROM ordered o
+        WHERE t.id = o.id;
+      `);
+    } catch (e) {
+      console.error('prisma:error renumber (raw)', e);
+      try {
+        // Fallback: slower chunked renumber via Prisma
+        const all = await prisma.trafficFlight.findMany({ select: { id: true, bulan: true, tahun: true }, orderBy: [{ tahun: 'asc' }, { bulan: 'asc' }, { id: 'asc' }] });
+        const toNum = (v: string | null | undefined) => {
+          const n = Number.parseInt(String(v ?? ''), 10);
+          return Number.isFinite(n) && !Number.isNaN(n) ? n : Number.MAX_SAFE_INTEGER;
+        };
+        const sorted = all.sort((a, b) => {
+          const ty = toNum(a.tahun) - toNum(b.tahun);
+          if (ty !== 0) return ty;
+          const tm = toNum(a.bulan) - toNum(b.bulan);
+          if (tm !== 0) return tm;
+          return Number(a.id) - Number(b.id);
+        });
+        const batchSize = 200;
+        for (let i = 0; i < sorted.length; i += batchSize) {
+          const chunk = sorted.slice(i, i + batchSize);
+          await prisma.$transaction(
+            chunk.map((row, idx2) => prisma.trafficFlight.update({ where: { id: row.id as unknown as bigint }, data: { no: i + idx2 + 1 } }))
+          );
+        }
+      } catch (e2) {
+        console.error('prisma:error renumber (fallback)', e2);
+      }
+    }
+
+    return NextResponse.json({ success: true, message: `Berhasil import ${inserted} baris`, count: inserted }, { status: 201 });
   } catch (error) {
     console.error('Error processing CSV:', error);
     return NextResponse.json(

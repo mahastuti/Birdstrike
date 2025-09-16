@@ -105,6 +105,10 @@ export async function POST(request: NextRequest) {
     const form = await request.formData();
     const csvFile = form.get('csvFile') as File | null;
 
+    const safeCount = async (fn: () => Promise<number>) => {
+      try { return await fn(); } catch (e) { console.error('prisma:error count()', e); return 0; }
+    };
+
     if (!csvFile) {
       return NextResponse.json({ success: false, message: 'File CSV diperlukan' }, { status: 400 });
     }
@@ -219,8 +223,8 @@ export async function POST(request: NextRequest) {
     const conflicts: { bulan: string | null; tahun: string | null; existing: number }[] = [];
     for (const { bulan, tahun } of groupSet.values()) {
       const count = bulan
-        ? await prisma.trafficFlight.count({ where: { tahun: tahun ?? null, OR: [{ bulan }, { bulan: String(Number.parseInt(bulan, 10)) }] } })
-        : await prisma.trafficFlight.count({ where: { tahun: tahun ?? null, bulan: null } });
+        ? await safeCount(() => prisma.trafficFlight.count({ where: { tahun: tahun ?? null, OR: [{ bulan }, { bulan: String(Number.parseInt(bulan, 10)) }] } }))
+        : await safeCount(() => prisma.trafficFlight.count({ where: { tahun: tahun ?? null, bulan: null } }));
       if (count > 0) conflicts.push({ bulan, tahun, existing: count });
     }
 
@@ -282,10 +286,13 @@ export async function GET(request: NextRequest) {
     const tahunFilter = (searchParams.get('tahun') || '').trim();
 
     const sortOrderParam: SortOrder = (searchParams.get('sortOrder') === 'asc' ? 'asc' : 'desc');
+    const sortByParam = (searchParams.get('sortBy') || 'id').trim();
     const cursorParam = searchParams.get('cursor');
     const cursorId = cursorParam && /^\d+$/.test(cursorParam) ? BigInt(cursorParam) : null;
 
-    const orderBy: Record<string, SortOrder> = { id: sortOrderParam };
+    const allowed: Array<keyof Prisma.TrafficFlightOrderByWithRelationInput> = ['id','no','bulan','tahun'];
+    const sortKey = (allowed as string[]).includes(sortByParam) ? sortByParam as 'id' | 'no' | 'bulan' | 'tahun' : 'id';
+    const orderBy: Prisma.TrafficFlightOrderByWithRelationInput = { [sortKey]: sortOrderParam } as Prisma.TrafficFlightOrderByWithRelationInput;
 
     const orFilters: Record<string, unknown>[] = [];
     if (search) {
@@ -310,23 +317,53 @@ export async function GET(request: NextRequest) {
     }
     const where: Prisma.TrafficFlightWhereInput = andConds.length ? { AND: andConds } : {};
 
-    const total = process.env.DATABASE_URL ? await prisma.trafficFlight.count({ where }) : 0;
+    const safeCount = async (fn: () => Promise<number>) => {
+      try { return await fn(); } catch (e) { console.error('prisma:error count()', e); return 0; }
+    };
+
+    const total = 0;
+    const safeFind = async <T>(fn: () => Promise<T>, fallback: T): Promise<T> => {
+      try { return await fn(); } catch (e) { console.error('prisma:error find()', e); return fallback; }
+    };
 
     if (!process.env.DATABASE_URL) {
       return NextResponse.json({ success: true, data: [], pagination: { page: 1, limit, total: 0, pages: 0 }, pageInfo: { limit, hasMore: false, nextCursor: null }, filters: { months: Array.from({ length: 12 }, (_, i) => String(i + 1).padStart(2, '0')), years: [] } });
     }
 
-    const items = await prisma.trafficFlight.findMany({
+    const items = await safeFind(() => prisma.trafficFlight.findMany({
       where,
       orderBy,
+      select: {
+        id: true,
+        no: true,
+        act_type: true,
+        reg_no: true,
+        opr: true,
+        flight_number_origin: true,
+        flight_number_dest: true,
+        ata: true,
+        block_on: true,
+        block_off: true,
+        atd: true,
+        ground_time: true,
+        org: true,
+        des: true,
+        ps: true,
+        runway: true,
+        avio_a: true,
+        avio_d: true,
+        f_stat: true,
+        bulan: true,
+        tahun: true,
+      },
       take: limit + 1,
       ...(cursorId ? { cursor: { id: cursorId }, skip: 1 } : {})
-    });
+    }), [] as Awaited<ReturnType<typeof prisma.trafficFlight.findMany>>);
     const hasMore = items.length > limit;
     const rows = hasMore ? items.slice(0, limit) : items;
     const nextCursor = hasMore ? String(rows[rows.length - 1].id) : null;
 
-    const distinct = await prisma.trafficFlight.findMany({ select: { bulan: true, tahun: true } });
+    const distinct = await safeFind(() => prisma.trafficFlight.groupBy({ by: ['bulan','tahun'] }), [] as Awaited<ReturnType<typeof prisma.trafficFlight.groupBy>>);
 
     const monthsSet = new Set<string>();
     const yearsSet = new Set<string>();
@@ -350,7 +387,7 @@ export async function GET(request: NextRequest) {
       return value;
     };
 
-    const totalAll = process.env.DATABASE_URL ? await prisma.trafficFlight.count() : 0;
+    const totalAll = 0;
     return NextResponse.json({
       success: true,
       data: serialize(rows),

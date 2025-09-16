@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { Trash2, RotateCcw, Download, ChevronLeft, ChevronRight, Pencil } from "lucide-react";
 
 interface DataTableProps {
@@ -44,6 +44,7 @@ export default function DataTable({ dataType, exportScope = 'all' }: DataTablePr
   const [tahun, setTahun] = useState<string>('');
   const [bulanOptions, setBulanOptions] = useState<string[]>([]);
   const [tahunOptions, setTahunOptions] = useState<string[]>([]);
+  const [modelSource, setModelSource] = useState<'all' | 'bird-strike' | 'traffic-flight'>('all');
 
   const [isEditing, setIsEditing] = useState(false);
   const [editingRow, setEditingRow] = useState<BaseRow | null>(null);
@@ -51,6 +52,7 @@ export default function DataTable({ dataType, exportScope = 'all' }: DataTablePr
 
   const [previewSrc, setPreviewSrc] = useState<string | null>(null);
   const [previewType, setPreviewType] = useState<'image' | 'pdf' | 'file' | null>(null);
+  const modelingInitRef = useRef(false);
 
   const fetchData = useCallback(async (signal?: AbortSignal) => {
     setLoading(true);
@@ -71,14 +73,30 @@ export default function DataTable({ dataType, exportScope = 'all' }: DataTablePr
         if (bulan) params.set('bulan', bulan);
         if (tahun) params.set('tahun', tahun);
       }
-
-      const response = await fetch(`/api/data/${dataType}?${params}`, {
-        signal
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+      if (dataType === 'modeling') {
+        params.set('source', modelSource);
       }
+
+      const url = `/api/data/${dataType}?${params}`;
+      const tryFetch = async (): Promise<Response> => {
+        let lastErr: unknown;
+        for (let i = 0; i < 3; i++) {
+          try {
+            const res = await fetch(url, { signal, cache: 'no-store', credentials: 'same-origin' });
+            if (res.ok) return res;
+            if (res.status >= 500) { await new Promise(r => setTimeout(r, 200 * (i + 1))); continue; }
+            return res;
+          } catch (e) {
+            lastErr = e;
+            if (signal?.aborted) throw e;
+            await new Promise(r => setTimeout(r, 200 * (i + 1)));
+          }
+        }
+        throw lastErr instanceof Error ? lastErr : new Error('Failed to fetch');
+      };
+
+      const response = await tryFetch();
+      if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
       if (signal?.aborted) return;
 
       const result = await response.json();
@@ -108,6 +126,17 @@ export default function DataTable({ dataType, exportScope = 'all' }: DataTablePr
 
   useEffect(() => {
     const controller = new AbortController();
+
+    if (dataType === 'modeling' && !modelingInitRef.current) {
+      modelingInitRef.current = true;
+      (async () => {
+        try { await fetchData(controller.signal); } catch {}
+      })();
+      return () => {
+        try { if (!controller.signal.aborted) controller.abort(); } catch {}
+      };
+    }
+
     const timeoutId = setTimeout(() => {
       fetchData(controller.signal);
     }, search ? 300 : 0);
@@ -116,12 +145,12 @@ export default function DataTable({ dataType, exportScope = 'all' }: DataTablePr
       try { if (!controller.signal.aborted) controller.abort(); } catch {}
       clearTimeout(timeoutId);
     };
-  }, [fetchData, search]);
+  }, [fetchData, search, dataType]);
 
   useEffect(() => {
     setCursors({ 1: null });
     setPage(1);
-  }, [dataType, search, showDeleted, sortBy, sortOrder, bulan, tahun, limit]);
+  }, [dataType, search, showDeleted, sortBy, sortOrder, bulan, tahun, limit, modelSource]);
 
   const handleDelete = async (id: string) => {
     try {
@@ -174,6 +203,9 @@ export default function DataTable({ dataType, exportScope = 'all' }: DataTablePr
       if (dataType === 'traffic-flight') {
         if (bulan) params.set('bulan', bulan);
         if (tahun) params.set('tahun', tahun);
+      }
+      if (dataType === 'modeling') {
+        params.set('source', modelSource);
       }
     }
     const url = `/api/data/${dataType}/export?${params.toString()}`;
@@ -473,6 +505,21 @@ export default function DataTable({ dataType, exportScope = 'all' }: DataTablePr
               </label>
             </>
           )}
+
+          {dataType === 'modeling' && (
+            <label className="flex items-center gap-2 text-sm">
+              <span className="text-sm">Sumber:</span>
+              <select
+                value={modelSource}
+                onChange={(e) => { setModelSource(e.target.value as any); setPage(1); }}
+                className="border border-gray-300 rounded px-2 py-1 text-sm"
+              >
+                <option value="all">Semua</option>
+                <option value="bird-strike">Bird Strike</option>
+                <option value="traffic-flight">Traffic Flight</option>
+              </select>
+            </label>
+          )}
           <div className="flex items-center gap-2">
             <span className="text-sm">Search:</span>
             <input
@@ -483,6 +530,31 @@ export default function DataTable({ dataType, exportScope = 'all' }: DataTablePr
               placeholder="Search..."
             />
           </div>
+          {dataType === 'modeling' && (
+            <button
+              onClick={async () => {
+                try {
+                  const scope = modelSource;
+                  if (!window.confirm(scope === 'all' ? 'Hapus SEMUA data Modeling?' : `Hapus data Modeling sumber: ${scope}?`)) return;
+                  const url = `/api/data/modeling?${new URLSearchParams({ source: scope })}`;
+                  const res = await fetch(url, { method: 'DELETE' });
+                  const json = await res.json();
+                  if (!res.ok || !json.success) throw new Error(json.message || 'Gagal menghapus data');
+                  setMessage(`Berhasil dibersihkan (${json.deleted})`);
+                  setTimeout(() => setMessage(''), 3000);
+                  const c = new AbortController();
+                  await fetchData(c.signal);
+                } catch (e) {
+                  console.error(e);
+                  setMessage('Gagal membersihkan data');
+                  setTimeout(() => setMessage(''), 3000);
+                }
+              }}
+              className="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded text-sm"
+            >
+              Bersihkan Data
+            </button>
+          )}
           <button onClick={downloadData} className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded flex items-center gap-2 text-sm">
             <Download className="w-4 h-4" />
             Download Data
